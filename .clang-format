@@ -1,0 +1,15 @@
+---
+Language:        Cpp
+BasedOnStyle: Mozilla
+# AlignConsecutiveAssignments:
+#   Enabled: true
+AlignConsecutiveMacros:
+  Enabled: true
+AlignConsecutiveShortCaseStatements:
+  Enabled: true
+ColumnLimit: 120
+FixNamespaceComments: true
+PackConstructorInitializers: CurrentLine
+# UseTab: ForIndentation
+# TabWidth: 2
+IndentWidth: 2
