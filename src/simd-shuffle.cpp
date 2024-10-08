@@ -18,6 +18,16 @@
 /* #define ALT 0 */
 
 template<std::size_t N>
+void
+appendHexToString(std::string& str, const auto x, bool reverse = false)
+{
+  std::array<char, 256> buf;
+  auto [ptr, ec] = std::to_chars(buf.data(), buf.data() + buf.size(), x, 16);
+  str.append(N / 4 - (ptr - buf.data()), '0');
+  str.append(buf.data(), ptr);
+}
+
+template<std::size_t N>
 std::string
 reverseInt(const auto x, bool reverse = false, bool show16 = false)
 {
@@ -28,21 +38,30 @@ reverseInt(const auto x, bool reverse = false, bool show16 = false)
   }
 
   if (show16) {
-    std::array<char, 256> buf;
-    auto [ptr, ec] = std::to_chars(buf.data(), buf.data() + buf.size(), x, 16);
     s += " 0x";
-    s.append(N / 4 - (ptr - buf.data()), '0');
-    s.append(buf.data(), ptr);
+    appendHexToString<N>(s, x, reverse);
   }
 
   return s;
 }
 
 std::string
-get128mm(const __m128i x) {
-	auto s = reverseInt<64>(_mm_extract_epi64(x, 1));
-	s += reverseInt<64>(_mm_extract_epi64(x, 0));
-	return s;
+get128mm(const __m128i x, bool reverse = false, bool show16 = false)
+{
+	const std::uint64_t first = reverse ? _mm_extract_epi64(x, 0) : _mm_extract_epi64(x, 1);
+	const std::uint64_t second = reverse ? _mm_extract_epi64(x, 1) : _mm_extract_epi64(x, 0);
+
+  std::string s;
+	s += reverseInt<64>(first);
+	s += reverseInt<64>(second);
+
+	if (show16) {
+		s += " 0x";
+		appendHexToString<64>(s, first, reverse);
+		appendHexToString<64>(s, second, reverse);
+	}
+
+  return s;
 }
 
 // This is a test to see how I might do leetcode 2696.
@@ -56,47 +75,12 @@ leetcode_2696_test(const std::string_view buf)
   // a, b, c and D and combine those, but it would be equally many searches, for not much gain.
   const __m128i PAT1 = _mm_setr_epi8('A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B');
   const __m128i PAT2 = _mm_setr_epi8('C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D');
-
-  // All of these needs to be xored with this 0x80, to remove the upper spot
-  const __m128i XORP = _mm_set1_epi8(0x80);
-  const std::uint64_t XORR = 0x8080808080808080;
+  const auto ALL_ONES = _mm_set1_epi8(0xFF);
 
   int ans = 0;
   for (int i = 0; i < static_cast<int>(buf.size()); i += 16) {
-    const __m128i input = _mm_loadu_si128(reinterpret_cast<const __m128i*>(buf.data() + i));
-	
-#ifdef ALT
-		// Different way of matching, but I prefer my old fashioned way.
-    const auto shiftedInput = _mm_bsrli_si128(input, 1);
-
-		// So we cheat a bit here and exploit the fact that we are after two patterns that only differ by 1.
-		// So we can look at them in the sense of.
-		const auto diffInput = _mm_sub_epi8(shiftedInput, input);
-		const auto diffMatch = _mm_cmpeq_epi8(diffInput, _mm_set1_epi8(1));
-
-		const auto aMatch = _mm_cmpeq_epi8(input, _mm_set1_epi8('A'));
-		const auto cMatch = _mm_cmpeq_epi8(input, _mm_set1_epi8('C'));
-		const auto acMatches = _mm_or_si128(aMatch, cMatch);
-		
-		// Now it marks all matches star, we want to apply 1 to this.
-		const auto actualMatches = _mm_and_si128(diffMatch, acMatches);
-		const auto shiftedMatches = _mm_bslli_si128(actualMatches, 1);
-		const auto allMatches = _mm_or_si128(actualMatches, shiftedMatches);
-
-		const auto matchedF = _mm_andnot_si128(allMatches, _mm_set1_epi8(0xFF));
-
-#ifdef VERBOSE
-		std::cout << "diffMatch: [" << get128mm(diffMatch) << "]\n";
-
-#endif
-#else
+    const auto input = _mm_loadu_si128(reinterpret_cast<const __m128i*>(buf.data() + i));
     const auto shiftedInput = _mm_bslli_si128(input, 1);
-
-
-    // Let's build the number we want.
-
-    // Now then, how are we to endure this? Well, we need to compare them as 16 bit ints,
-    // as we want it all to match or nothing.
 
     // Aligned matches
     const auto match1 = _mm_cmpeq_epi16(input, PAT1);
@@ -112,75 +96,47 @@ leetcode_2696_test(const std::string_view buf)
 
     // We have to shift the non aligned input back.
     auto matchedF = _mm_or_si128(matched1, _mm_bsrli_si128(matched2, 1));
-		matchedF = _mm_andnot_si128(matchedF, _mm_set1_epi8(0xFF));
-#endif
+		auto invertedMatchedF = _mm_andnot_si128(matchedF, ALL_ONES);
 
+    const std::uint16_t hitMask = _mm_movemask_epi8(invertedMatchedF);
 
-    const std::uint16_t hitMask = _mm_movemask_epi8(matchedF);
+    // First we spread the 16 mask values into nibles, 4 bits
+    const std::uint64_t hitMask4 = _pdep_u64(hitMask, 0x1111111111111111) * 0x0F;
 
-    // Unpack each bit into a byte, we need 2 vectors for this, since the we have 128bits of info
-    // Then we multiply by 0xFF, to convert from 01 to FF for each seperate byte.
-    const std::uint64_t lowerMask = _pdep_u64(hitMask, 0x0101010101010101) * 0xFF;
-    const std::uint64_t upperMask = _pdep_u64(hitMask >> 8, 0x0101010101010101) * 0xFF;
+    // Extract the indices into the left side
+    const std::uint64_t indices = _pext_u64(0xFEDCBA9876543210, hitMask4);
 
-    const std::uint16_t lowerHits = std::popcount(lowerMask) / 8;
+    // Now we expand them out again, into bytes
+    const std::uint64_t highMask = _pdep_u64(indices >> 32ULL, 0x0F0F0F0F0F0F0F0F);
+    const std::uint64_t lowMask = _pdep_u64(indices, 0x0F0F0F0F0F0F0F0F);
 
-    // Now we can create the indicies we want.
-    // We could add 0x80 to all, and xor with 0x80 to get just the valid ones.
-    const std::uint64_t lowerIndices = 0x8786858483828180;
-    const std::uint64_t upperIndices = 0x8F8E8D8C8B8A8988;
+    // The problem now is just that we need to know which
+    const auto combinedMask = _mm_set_epi64x(highMask, lowMask);
 
-    // ok, we want to overwrite the upperIndicies,
+    const auto compressedInput = _mm_shuffle_epi8(input, combinedMask);
 
-    // ok, now we are going to create the two parts of the mask.
-    const std::uint64_t lowerPacked = _pext_u64(lowerIndices, lowerMask);
-    const std::uint64_t upperPacked = _pext_u64(upperIndices, upperMask);
+    /* std::cout << "CombinedMask:   [" << get128mm(combinedMask, false, true) << "]\n"; */
+    /* std::cout << "CompressedHits: [" << get128mm(compressedHits, false, true) << "]\n"; */
 
-    const std::uint64_t lowerFixedPacked = lowerPacked | (upperPacked << (8 * lowerHits));
-    const std::uint64_t upperFixedPacked = upperPacked >> (64 - (8 * lowerHits));
+    /* const auto filledIn = _mm_blendv_epi8(_mm_set1_epi8('.'), compressedInput, compressedHits); */
+    const auto filledIn =  compressedInput;
 
-    // OK, for now let's just do this
-    const auto permuteMask = _mm_set_epi64x(upperFixedPacked, lowerFixedPacked);
-    const auto finalMask = _mm_xor_si128(permuteMask, XORP);
-
-    const auto afterShuffle = _mm_shuffle_epi8(input, finalMask);
-
-    // I want to use the
-    const auto filledIn = _mm_blendv_epi8(afterShuffle, _mm_set1_epi8('.'), finalMask);
+    const std::uint16_t totalHits = _mm_popcnt_u64(hitMask);
 
     std::array<char, 16> outputBuf;
     _mm_storeu_si128(reinterpret_cast<__m128i*>(outputBuf.data()), filledIn);
 
+    ans += totalHits;
     ans += outputBuf[0];
 
 #ifdef VERBOSE
-    std::cout << "Hits:  [" << reverseInt<16>(hitMask) << "]\n";
-    /* std::cout << "Upper hits: " << upperHits << ", lowerHits: " << lowerHits << "\n"; */
-
-    /* std::cout << "Lower: [" << reverseInt<64>(lowerMask) << "]\n"; */
-    /* std::cout << "Upper: [" << reverseInt<64>(upperMask) << "]\n"; */
-
-    /* std::cout << "LI:    [" << reverseInt<64>(lowerIndices) << "]\n"; */
-    /* std::cout << "UP:    [" << reverseInt<64>(upperIndices[lowerHits]) << "]\n"; */
-
-    /* std::cout << "\n"; */
-    /* std::cout << "LOwer: [" << reverseInt<64>(lowerPacked) << "]\n"; */
-    /* std::cout << "LUPer: [" << reverseInt<64>(upperPacked << (8 * lowerHits)) << "]\n"; */
-
-    /* std::cout << "\n"; */
-
-    std::cout << "LoweF: [" << reverseInt<64>(lowerFixedPacked ^ XORR, false, true) << "]\n";
-    std::cout << "UPper: [" << reverseInt<64>(upperFixedPacked ^ XORR, false, true) << "]\n";
-
-    std::cout << "\n";
-
     std::cout << "Input:  [" << buf << "]\n";
-    std::cout << "Output: [" << std::string_view(outputBuf.begin(), outputBuf.end()) << "]\n";
+    std::cout << "Output: [" << std::string_view(outputBuf.begin(), totalHits) << "]\n";
 #endif
   }
 
   // ok, we are going to be
-	return ans;
+  return ans;
 }
 
 void
