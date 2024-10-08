@@ -15,6 +15,7 @@
  */
 
 #define VERBOSE 0
+/* #define ALT 0 */
 
 template<std::size_t N>
 std::string
@@ -37,6 +38,13 @@ reverseInt(const auto x, bool reverse = false, bool show16 = false)
   return s;
 }
 
+std::string
+get128mm(const __m128i x) {
+	auto s = reverseInt<64>(_mm_extract_epi64(x, 1));
+	s += reverseInt<64>(_mm_extract_epi64(x, 0));
+	return s;
+}
+
 // This is a test to see how I might do leetcode 2696.
 int
 leetcode_2696_test(const std::string_view buf)
@@ -56,7 +64,34 @@ leetcode_2696_test(const std::string_view buf)
   int ans = 0;
   for (int i = 0; i < static_cast<int>(buf.size()); i += 16) {
     const __m128i input = _mm_loadu_si128(reinterpret_cast<const __m128i*>(buf.data() + i));
+	
+#ifdef ALT
+		// Different way of matching, but I prefer my old fashioned way.
+    const auto shiftedInput = _mm_bsrli_si128(input, 1);
+
+		// So we cheat a bit here and exploit the fact that we are after two patterns that only differ by 1.
+		// So we can look at them in the sense of.
+		const auto diffInput = _mm_sub_epi8(shiftedInput, input);
+		const auto diffMatch = _mm_cmpeq_epi8(diffInput, _mm_set1_epi8(1));
+
+		const auto aMatch = _mm_cmpeq_epi8(input, _mm_set1_epi8('A'));
+		const auto cMatch = _mm_cmpeq_epi8(input, _mm_set1_epi8('C'));
+		const auto acMatches = _mm_or_si128(aMatch, cMatch);
+		
+		// Now it marks all matches star, we want to apply 1 to this.
+		const auto actualMatches = _mm_and_si128(diffMatch, acMatches);
+		const auto shiftedMatches = _mm_bslli_si128(actualMatches, 1);
+		const auto allMatches = _mm_or_si128(actualMatches, shiftedMatches);
+
+		const auto matchedF = _mm_andnot_si128(allMatches, _mm_set1_epi8(0xFF));
+
+#ifdef VERBOSE
+		std::cout << "diffMatch: [" << get128mm(diffMatch) << "]\n";
+
+#endif
+#else
     const auto shiftedInput = _mm_bslli_si128(input, 1);
+
 
     // Let's build the number we want.
 
@@ -77,8 +112,11 @@ leetcode_2696_test(const std::string_view buf)
 
     // We have to shift the non aligned input back.
     auto matchedF = _mm_or_si128(matched1, _mm_bsrli_si128(matched2, 1));
+		matchedF = _mm_andnot_si128(matchedF, _mm_set1_epi8(0xFF));
+#endif
 
-    const std::uint16_t hitMask = ~_mm_movemask_epi8(matchedF);
+
+    const std::uint16_t hitMask = _mm_movemask_epi8(matchedF);
 
     // Unpack each bit into a byte, we need 2 vectors for this, since the we have 128bits of info
     // Then we multiply by 0xFF, to convert from 01 to FF for each seperate byte.
@@ -86,8 +124,6 @@ leetcode_2696_test(const std::string_view buf)
     const std::uint64_t upperMask = _pdep_u64(hitMask >> 8, 0x0101010101010101) * 0xFF;
 
     const std::uint16_t lowerHits = std::popcount(lowerMask) / 8;
-    /* const std::uint16_t lowerHits = 8; // std::popcount(lowerMask) / 8; */
-    const std::uint16_t upperHits = std::popcount(upperMask) / 8;
 
     // Now we can create the indicies we want.
     // We could add 0x80 to all, and xor with 0x80 to get just the valid ones.
