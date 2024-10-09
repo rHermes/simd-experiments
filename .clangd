@@ -1,5 +1,5 @@
 If:
-  PathMatch: .*\.(cpp|hpp)
+  PathMatch: .*\.(cpp|hpp|h)
 
 CompileFlags:
-  Add: [ -Wall, -Wextra, -pedantic, -std=c++23 ]
+  Add: [ -Wall, -Wextra, -pedantic, -std=c++23, -I../include/ ]
