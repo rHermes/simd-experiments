@@ -87,6 +87,25 @@ m128toHex(const __m128i x, bool reverse = false)
 }
 
 inline std::string
+m256toHex(const __m256i x, bool reverse = false)
+{
+  const std::uint64_t first = reverse ? _mm256_extract_epi64(x, 0) : _mm256_extract_epi64(x, 3);
+  const std::uint64_t second = reverse ? _mm256_extract_epi64(x, 1) : _mm256_extract_epi64(x, 2);
+  const std::uint64_t third = reverse ? _mm256_extract_epi64(x, 2) : _mm256_extract_epi64(x, 1);
+  const std::uint64_t fourth = reverse ? _mm256_extract_epi64(x, 3) : _mm256_extract_epi64(x, 0);
+
+  std::string s;
+  s += "0x";
+  appendHexToString<64>(s, first, reverse);
+  appendHexToString<64>(s, second, reverse);
+	s += " ";
+  appendHexToString<64>(s, third, reverse);
+  appendHexToString<64>(s, fourth, reverse);
+
+  return s;
+}
+
+inline std::string
 m128toBin(const __m128i x, bool reverse = false, bool show16 = false)
 {
   const std::uint64_t first = reverse ? _mm_extract_epi64(x, 0) : _mm_extract_epi64(x, 1);
