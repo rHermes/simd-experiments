@@ -25,10 +25,16 @@ inline int
 solveSIMD_AVX2(std::string_view input);
 
 inline int
+solveSIMD_AVX2_v1(std::string_view input);
+
+inline int
 solveSIMD_AVX2_v2(std::string_view input);
 
 inline int
 solveSIMD_AVX2_v3(std::string_view input);
+
+inline int
+solveSIMD_AVX2_v4(std::string_view input);
 
 //
 template<typename Gen>
@@ -98,6 +104,13 @@ runBernoulliTest(Rng&& rng, const std::string& title, const std::size_t size, co
       ankerl::nanobench::doNotOptimizeAway(r);
     }
   });
+
+  b.run("AVX2_V4", [&]() {
+    for (const auto& s : testSet) {
+      const auto r = solveSIMD_AVX2_v3(s);
+      ankerl::nanobench::doNotOptimizeAway(r);
+    }
+  });
 }
 
 template<typename Rng>
@@ -110,7 +123,7 @@ sanityCheck(Rng&& rng)
   for (const auto& tc : testSet) {
     const auto expected = solveNormal(tc);
     const auto sse4 = solveSIMD_SSE4(tc);
-    const auto avx2 = solveSIMD_AVX2_v3(tc);
+    const auto avx2 = solveSIMD_AVX2(tc);
 
     if (sse4 != expected && avx2 != expected) {
       std::cout << "We expected: " << expected << ", but sse4 got: " << sse4 << ", and avx512: " << avx2
@@ -205,6 +218,92 @@ solveSIMD_SSE4(std::string_view inputString)
 
 inline int
 solveSIMD_AVX2(std::string_view inputString)
+{
+  return solveSIMD_AVX2_v4(inputString);
+}
+
+inline int
+solveSIMD_AVX2_v4(std::string_view inputString)
+{
+  // In this one, we drop a bunch of the manipulation, because it's really not needed I realize now.
+  const int N = inputString.size();
+
+  const auto ALL_ZERO = _mm256_setzero_si256();
+  const auto ALL_ONE = _mm256_set1_epi8(0x01);
+  const auto ALL_SET = _mm256_set1_epi8(0xFF);
+
+  auto ans = _mm256_setzero_si256();
+  auto balance = _mm256_setzero_si256();
+
+  int i = 0;
+  for (; i + 32 <= N; i += 32) {
+    const auto chunk = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(inputString.data() + i));
+    const auto leftBraces = _mm256_sub_epi8(chunk, _mm256_set1_epi8(')'));
+    const auto rightBraces = _mm256_andnot_si256(leftBraces, ALL_SET);
+    const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
+
+    auto psa = _mm256_add_epi8(valueChunk, _mm256_bslli_epi128(valueChunk, 1));
+    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 2));
+    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 4));
+    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 8));
+
+    auto min = _mm256_min_epi8(psa, _mm256_bslli_epi128(psa, 1));
+    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 2));
+    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 4));
+    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 8));
+
+    // ok, let's swap min and psa.
+    const auto flippedPSA = _mm256_permute2x128_si256(psa, psa, 0x01);
+    const auto flippedMin = _mm256_permute2x128_si256(min, min, 0x01);
+
+    // ok, now we add these together.
+    const auto finalPsa = _mm256_add_epi8(flippedPSA, psa);
+    const auto finalMin = _mm256_add_epi8(flippedMin, psa);
+
+    // ok, so now we just have to compare.
+    const auto totalMin = _mm256_min_epi8(min, finalMin);
+    const auto negMin = _mm256_sub_epi8(ALL_ZERO, totalMin);
+
+    // now then, we are going to revesre the totalMin, since we need that.
+    // ok, so this is nice, we can actually get both of them like we want by shifting 15 to the right.
+    const auto onlyPSA = _mm256_bsrli_epi128(finalPsa, 15);
+    const auto onlyMin = _mm256_bsrli_epi128(negMin, 15);
+
+    // Now then, we are going to convert this.
+    const auto lowOnlyPSA = _mm256_castsi256_si128(onlyPSA);
+    const auto lowOnlyMin = _mm256_castsi256_si128(onlyMin);
+
+    // We need to use 32, because there there is no max_epi64
+    const auto onlyPSA_32 = _mm256_cvtepi8_epi32(lowOnlyPSA);
+    const auto onlyMin_32 = _mm256_cvtepi8_epi32(lowOnlyMin);
+
+    const auto padding = _mm256_max_epi32(_mm256_sub_epi32(onlyMin_32, balance), ALL_ZERO);
+    const auto tempAdd = _mm256_add_epi32(padding, onlyPSA_32);
+
+    balance = _mm256_add_epi32(balance, tempAdd);
+    ans = _mm256_add_epi32(ans, padding);
+  }
+
+  int scalarBalance = _mm256_cvtsi256_si32(balance);
+  int scalarAns = _mm256_cvtsi256_si32(ans);
+
+  for (; i < N; i++) {
+    if (inputString[i] == '(') {
+      scalarBalance++;
+    } else {
+      scalarBalance--;
+      if (scalarBalance < 0) {
+        scalarAns++;
+        scalarBalance = 0;
+      }
+    }
+  }
+
+  return scalarAns + scalarBalance;
+}
+
+inline int
+solveSIMD_AVX2_v1(std::string_view inputString)
 {
   // we just knnow that these are good.
   const int N = inputString.size();
