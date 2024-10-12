@@ -22,6 +22,12 @@ inline int
 solveSIMD_SSE4(std::string_view input);
 
 inline int
+solveSIMD_SSE4_v1(std::string_view input);
+
+inline int
+solveSIMD_SSE4_v2(std::string_view input);
+
+inline int
 solveSIMD_AVX2(std::string_view input);
 
 inline int
@@ -44,6 +50,9 @@ solveSIMD_AVX2_v6(std::string_view input);
 
 inline int
 solveSIMD_AVX2_v7(std::string_view input);
+
+inline int
+solveSIMD_AVX2_v8(std::string_view input);
 
 //
 template<typename Gen>
@@ -77,58 +86,66 @@ runBernoulliTest(Rng&& rng, const std::string& title, const std::size_t size, co
 
   const auto testSet = generateBernoulliTestset(rng, size, inputLen, p);
 
-  b.title(title).warmup(10).batch(size * inputLen).unit("byte").relative(true);
+  b.title(title).warmup(10).batch(size * inputLen).unit("byte");
 
-  b.run("Normal", [&]() {
+  /* b.relative(true).run("Normal", [&]() { */
+  /*   for (const auto& s : testSet) { */
+  /*     const auto r = solveNormal(s); */
+  /*     ankerl::nanobench::doNotOptimizeAway(r); */
+  /*   } */
+  /* }); */
+
+  b.relative(true).run("SSE4_v1", [&]() {
     for (const auto& s : testSet) {
-      const auto r = solveNormal(s);
+      const auto r = solveSIMD_SSE4_v1(s);
       ankerl::nanobench::doNotOptimizeAway(r);
     }
   });
 
-  b.run("SSE4", [&]() {
+  b.run("SSE4_v2", [&]() {
     for (const auto& s : testSet) {
-      const auto r = solveSIMD_SSE4(s);
+      const auto r = solveSIMD_SSE4_v2(s);
       ankerl::nanobench::doNotOptimizeAway(r);
     }
   });
 
-  b.run("AVX2_V1", [&]() {
+  b.run("AVX2_v1", [&]() {
     for (const auto& s : testSet) {
       const auto r = solveSIMD_AVX2_v1(s);
       ankerl::nanobench::doNotOptimizeAway(r);
     }
   });
 
-  b.run("AVX2_V2", [&]() {
+  b.run("AVX2_v2", [&]() {
     for (const auto& s : testSet) {
       const auto r = solveSIMD_AVX2_v2(s);
       ankerl::nanobench::doNotOptimizeAway(r);
     }
   });
-
-  b.run("AVX2_V3", [&]() {
+	
+	// Best performer so far
+  b.run("AVX2_v3", [&]() {
     for (const auto& s : testSet) {
       const auto r = solveSIMD_AVX2_v3(s);
       ankerl::nanobench::doNotOptimizeAway(r);
     }
   });
 
-  b.run("AVX2_V4", [&]() {
+  b.run("AVX2_v4", [&]() {
     for (const auto& s : testSet) {
       const auto r = solveSIMD_AVX2_v4(s);
       ankerl::nanobench::doNotOptimizeAway(r);
     }
   });
 
-  b.run("AVX2_V5", [&]() {
+  b.run("AVX2_v5", [&]() {
     for (const auto& s : testSet) {
       const auto r = solveSIMD_AVX2_v5(s);
       ankerl::nanobench::doNotOptimizeAway(r);
     }
   });
 
-  b.run("AVX2_V6", [&]() {
+  b.run("AVX2_v6", [&]() {
     for (const auto& s : testSet) {
       const auto r = solveSIMD_AVX2_v6(s);
       ankerl::nanobench::doNotOptimizeAway(r);
@@ -141,6 +158,13 @@ runBernoulliTest(Rng&& rng, const std::string& title, const std::size_t size, co
   /*     ankerl::nanobench::doNotOptimizeAway(r); */
   /*   } */
   /* }); */
+
+  b.run("AVX2_v8", [&]() {
+    for (const auto& s : testSet) {
+      const auto r = solveSIMD_AVX2_v8(s);
+      ankerl::nanobench::doNotOptimizeAway(r);
+    }
+  });
 }
 
 template<typename Rng>
@@ -195,7 +219,14 @@ main()
 inline int
 solveSIMD_AVX2(std::string_view inputString)
 {
-  return solveSIMD_AVX2_v6(inputString);
+  /* return solveSIMD_AVX2_v3(inputString); */
+  return solveSIMD_AVX2_v8(inputString);
+}
+
+inline int
+solveSIMD_SSE4(std::string_view inputString)
+{
+  return solveSIMD_SSE4_v2(inputString);
 }
 
 inline int
@@ -534,9 +565,8 @@ solveSIMD_AVX2_v5(std::string_view inputString)
 }
 
 inline int
-solveSIMD_SSE4(std::string_view inputString)
+solveSIMD_SSE4_v1(std::string_view inputString)
 {
-  // we just knnow that these are good.
   const int N = inputString.size();
 
   int ans = 0;
@@ -585,6 +615,133 @@ solveSIMD_SSE4(std::string_view inputString)
   }
 
   return ans + balance;
+}
+
+inline int
+solveSIMD_SSE4_v2(std::string_view inputString)
+{
+  const int N = inputString.size();
+
+  // Ok, so this version is an experiment, where we keep a running count of the min and psa
+  // instead and handle the output at the end.
+
+  const auto ALL_ONE = _mm_set1_epi8(0x01);
+  const auto ALL_SET = _mm_set1_epi8(0xFF);
+  const auto ALL_ZERO = _mm_setzero_si128();
+
+  // 32 bit running sum min
+  auto runningMin = ALL_ZERO;
+  auto runningSum = ALL_ZERO;
+
+  int i = 0;
+  for (; i + 16 <= N; i += 16) {
+    const auto chunk = _mm_loadu_si128(reinterpret_cast<__m128i const*>(inputString.data() + i));
+    const auto leftBraces = _mm_sub_epi8(chunk, _mm_set1_epi8(')'));
+    const auto rightBraces = _mm_andnot_si128(leftBraces, ALL_SET);
+    const auto valueChunk = _mm_or_si128(rightBraces, ALL_ONE);
+
+    auto psa = _mm_add_epi8(valueChunk, _mm_bslli_si128(valueChunk, 1));
+    psa = _mm_add_epi8(psa, _mm_bslli_si128(psa, 2));
+    psa = _mm_add_epi8(psa, _mm_bslli_si128(psa, 4));
+    psa = _mm_add_epi8(psa, _mm_bslli_si128(psa, 8));
+
+    // Now if I have more than 16 in balance,  I can skip the next bit,
+    // but I don't, since it's better to just pipeline everything.
+    auto min = _mm_min_epi8(psa, _mm_bslli_si128(psa, 1));
+    min = _mm_min_epi8(min, _mm_bslli_si128(min, 2));
+    min = _mm_min_epi8(min, _mm_bslli_si128(min, 4));
+    min = _mm_min_epi8(min, _mm_bslli_si128(min, 8));
+
+    const auto extendedMin = _mm_cvtepi8_epi32(_mm_bsrli_si128(min, 15));
+    const auto extendedPsa = _mm_cvtepi8_epi32(_mm_bsrli_si128(psa, 15));
+
+    // Either prevPsa + curMin is a new minimum, or it's not.
+    runningMin = _mm_min_epi32(runningMin, _mm_add_epi32(runningSum, extendedMin));
+    runningSum = _mm_add_epi32(runningSum, extendedPsa);
+  }
+
+  std::int32_t scalarMin = _mm_extract_epi32(runningMin, 0);
+  std::int32_t scalarSum = _mm_extract_epi32(runningSum, 0);
+
+  /* std::cout << "Coming out we have: min = " << scalarMin << ", sum: " << scalarSum << "\n"; */
+
+  for (; i < N; i++) {
+    if (inputString[i] == '(') {
+      scalarSum++;
+    } else {
+      scalarSum--;
+      scalarMin = std::min(scalarMin, scalarSum);
+    }
+  }
+
+  /* std::cout << "Coming out final we have: min = " << scalarMin << ", sum: " << scalarSum << "\n"; */
+  return scalarSum - 2 * scalarMin;
+}
+
+inline int
+solveSIMD_AVX2_v8(std::string_view inputString)
+{
+  // So this is is basically just the AVX256 version of SSE4_v2
+  const int N = inputString.size();
+
+  const auto ALL_ZERO = _mm256_setzero_si256();
+  const auto ALL_ONE = _mm256_set1_epi8(0x01);
+  const auto ALL_SET = _mm256_set1_epi8(0xFF);
+
+  auto runningSum = ALL_ZERO;
+  /* auto runningSum = _mm256_set1_epi32(0); */
+  auto runningMin = _mm256_set1_epi32(0);
+
+  int i = 0;
+  for (; i + 32 <= N; i += 32) {
+    const auto chunk = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(inputString.data() + i));
+    const auto leftBraces = _mm256_sub_epi8(chunk, _mm256_set1_epi8(')'));
+    const auto rightBraces = _mm256_andnot_si256(leftBraces, ALL_SET);
+    const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
+
+    auto psa = _mm256_add_epi8(valueChunk, _mm256_bslli_epi128(valueChunk, 1));
+    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 2));
+    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 4));
+    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 8));
+
+    auto min = _mm256_min_epi8(psa, _mm256_bslli_epi128(psa, 1));
+    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 2));
+    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 4));
+    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 8));
+
+    // ok, let's swap min and psa.
+    const auto flippedPSA = _mm256_permute2x128_si256(psa, psa, 0x01);
+    const auto flippedMin = _mm256_permute2x128_si256(min, min, 0x01);
+
+    // ok, now we add these together.
+    const auto finalPsa = _mm256_add_epi8(flippedPSA, psa);
+    const auto finalMin = _mm256_add_epi8(flippedMin, psa);
+
+    // ok, so now we just have to compare.
+    const auto totalMin = _mm256_min_epi8(min, finalMin);
+
+    // We have them in 15 now, but we need them lower to find this.
+    auto extendedMin = _mm256_cvtepi8_epi32(_mm256_castsi256_si128(_mm256_bsrli_epi128(totalMin, 15)));
+    auto extendedPsa = _mm256_cvtepi8_epi32(_mm256_castsi256_si128(_mm256_bsrli_epi128(finalPsa, 15)));
+
+    // Either prevPsa + curMin is a new minimum, or it's not.
+    runningMin = _mm256_min_epi32(runningMin, _mm256_add_epi32(runningSum, extendedMin));
+    runningSum = _mm256_add_epi32(runningSum, extendedPsa);
+  }
+
+  std::int32_t scalarMin = _mm256_extract_epi32(runningMin, 0);
+  std::int32_t scalarSum = _mm256_extract_epi32(runningSum, 0);
+
+  for (; i < N; i++) {
+    if (inputString[i] == '(') {
+      scalarSum++;
+    } else {
+      scalarSum--;
+      scalarMin = std::min(scalarMin, scalarSum);
+    }
+  }
+
+  return scalarSum - 2 * scalarMin;
 }
 
 inline int
@@ -804,10 +961,7 @@ solveSIMD_AVX2_v3(std::string_view inputString)
   const auto ALL_ZERO = _mm256_setzero_si256();
   const auto ALL_ONE = _mm256_set1_epi8(0x01);
   const auto ALL_SET = _mm256_set1_epi8(0xFF);
-  /* const auto REVERSE = _mm_set_epi64x(0x0001020304050607, 0x08090A0B0C0D0E0F); */
 
-  /* auto ans = _mm256_setzero_si256(); */
-  /* auto balance = _mm256_setzero_si256(); */
   int ans = 0;
   int balance = 0;
 
@@ -848,23 +1002,6 @@ solveSIMD_AVX2_v3(std::string_view inputString)
     const int padding = std::max(0, minVal - balance);
     balance += finPsa + padding;
     ans += padding;
-
-    /* bool canReverse = true; */
-    /* std::cout << "GRID:        [" << inputString.substr(i, 16) << " " << inputString.substr(i+16, 16) << "]\n"; */
-    /* std::cout << "PSA:         [" << m256toHex(psa, canReverse) << "]\n"; */
-    /* std::cout << "Flipped PSA: [" << m256toHex(flippedPSA, canReverse) << "]\n"; */
-    /* std::cout << "Final PSA:   [" << m256toHex(finalPsa, canReverse) << "]\n"; */
-
-    /* std::cout << "\n"; */
-    /* std::cout << "MIN:         [" << m256toHex(min, canReverse) << "]\n"; */
-    /* std::cout << "Flipped MIN: [" << m256toHex(flippedMin, canReverse) << "]\n"; */
-    /* std::cout << "PSA:         [" << m256toHex(psa, canReverse) << "]\n"; */
-    /* std::cout << "Final min:   [" << m256toHex(finalMin, canReverse) << "]\n"; */
-    /* std::cout << "Total min:   [" << m256toHex(totalMin, canReverse) << "]\n"; */
-    /* std::cout << "Neg   min:   [" << m256toHex(negMin, canReverse) << "]\n"; */
-    /* std::cout << "\n"; */
-    /* std::cout << "Fin psa: " << static_cast<int>(finPsa) << " and minval: " << static_cast<int>(minVal) << ",
-     * balance: " << balance << "\n"; */
   }
 
   for (; i < N; i++) {
