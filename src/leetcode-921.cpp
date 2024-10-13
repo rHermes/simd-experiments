@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <print>
 #include <random>
 #include <span>
 #include <stdexcept>
@@ -219,71 +220,74 @@ sanityCheck(Rng&& rng)
   return true;
 }
 
-void bruteForceIt() {
-	// This is the string (( () )( )) twice. We are going to be using it to test 2 multiplications at a time.
-	const auto TEST_VEC = _mm_setr_epi8('(', '(', '(', ')', ')', '(', ')', ')', '(', '(', '(', ')', ')', '(', ')', ')');
+void
+bruteForceIt()
+{
+  // This is the string (( () )( )) twice. We are going to be using it to test 2 multiplications at a time.
+  const auto TEST_VEC = _mm_setr_epi8('(', '(', '(', ')', ')', '(', ')', ')', '(', '(', '(', ')', ')', '(', ')', ')');
 
-	const auto TEST_MASK_1 = _mm_set_epi64x(0, 0xFFFFFFFFFFFFFFFF);
-	const auto TEST_MASK_2 = _mm_set_epi64x(0xFFFFFFFFFFFFFFFF, 0);
-	
-	// These are created so it's easy to test for all 1
-	const auto WANT_MASK_1 = _mm_xor_si128(_mm_set1_epi8(0xFF), _mm_set_epi16(0, 0, 0, 0, -2, 0, 0, 2));
-	const auto WANT_MASK_2 = _mm_xor_si128(_mm_set1_epi8(0xFF), _mm_set_epi16(-2, 0, 0, 2, 0, 0, 0, 0));
+  const auto TEST_MASK_1 = _mm_set_epi64x(0, 0xFFFFFFFFFFFFFFFF);
+  const auto TEST_MASK_2 = _mm_set_epi64x(0xFFFFFFFFFFFFFFFF, 0);
 
-	const auto INC_VEC = _mm_set1_epi16(2);
-	
-	auto mulVec = _mm_set_epi16(-1, -1, -1, -1, -2, -2, -2, -2);
+  // These are created so it's easy to test for all 1
+  const auto WANT_MASK_1 = _mm_xor_si128(_mm_set1_epi8(0xFF), _mm_set_epi16(0, 0, 0, 0, -2, 0, 0, 2));
+  const auto WANT_MASK_2 = _mm_xor_si128(_mm_set1_epi8(0xFF), _mm_set_epi16(-2, 0, 0, 2, 0, 0, 0, 0));
 
-	for (int i = 0; i < std::numeric_limits<std::uint16_t>::max(); i += 2) {
-		mulVec = _mm_add_epi16(mulVec, INC_VEC);
+  const auto INC_VEC = _mm_set1_epi16(2);
 
-		if (i != 0xE0E0)
-			continue;
+  auto mulVec = _mm_set_epi16(-1, -1, -1, -1, -2, -2, -2, -2);
 
-		const auto mulRes = _mm_mullo_epi16(TEST_VEC, mulVec);
-		auto lowerPart = _mm_and_si128(mulRes, TEST_MASK_1);
-		auto upperPart = _mm_and_si128(mulRes, TEST_MASK_2);
+  for (int i = 0; i < std::numeric_limits<std::uint16_t>::max(); i += 2) {
+    mulVec = _mm_add_epi16(mulVec, INC_VEC);
 
-		const auto origLower = lowerPart;
-		const auto origUpper = upperPart;
+    if (i != 0xE0E0)
+      continue;
 
-		/* std::cout << "mulRes: [" << m128toHex(mulRes) << "]\n"; */
-		/* std::cout << "lower:  [" << m128toHex(lowerPart) << "]\n"; */
-		/* std::cout << "upper:  [" << m128toHex(upperPart) << "]\n"; */
+    const auto mulRes = _mm_mullo_epi16(TEST_VEC, mulVec);
+    auto lowerPart = _mm_and_si128(mulRes, TEST_MASK_1);
+    auto upperPart = _mm_and_si128(mulRes, TEST_MASK_2);
 
-		/* for (int j = 0; j < 16; j++) { */
-		for (int j = 0; j < 16; j++) {
-			const auto eqLower = _mm_xor_si128(lowerPart, WANT_MASK_1);
-			const auto eqUpper = _mm_xor_si128(upperPart, WANT_MASK_2);
+    const auto origLower = lowerPart;
+    const auto origUpper = upperPart;
 
-			if (_mm_test_all_ones(eqLower)) {
-				std::cout << "We did it: multi=" << std::hex << i << " and shift=" << j << "\n";
-				std::cout << "test : [" << m128toHex(TEST_VEC) << "]\n";
-				std::cout << "mul :  [" << m128toHex(mulVec) << "]\n";
-				std::cout << "lower: [" << m128toHex(origLower) << "]\n";
-				std::cout << "Sower: [" << m128toHex(lowerPart) << "]\n";
-	std::cout << " Pain:\n"; 
-	std::cout << "  - ((: " << _mm_extract_epi16(origLower, 0) << "\n";
-	std::cout << "  - (): " << _mm_extract_epi16(origLower, 1) << "\n";
-	std::cout << "  - )(: " << _mm_extract_epi16(origLower, 2) << "\n";
-	std::cout << "  - )): " << _mm_extract_epi16(origLower, 3) << "\n";
-				return;
-			}
+    /* std::cout << "mulRes: [" << m128toHex(mulRes) << "]\n"; */
+    /* std::cout << "lower:  [" << m128toHex(lowerPart) << "]\n"; */
+    /* std::cout << "upper:  [" << m128toHex(upperPart) << "]\n"; */
 
-			if (_mm_test_all_ones(eqUpper)) {
-				std::cout << "We did it: multi=" << (i+1) << " and shift=" << j << "\n";
-				/* std::cout << "upper: [" << m128toHex(_mm_xor_si128(_mm_set1_epi8(0xFF), WANT_MASK_2)) << "]\n"; */
-				std::cout << "Opper: [" << m128toHex(origUpper) << "]\n";
-				std::cout << "Spper: [" << m128toHex(upperPart) << "]\n";
-				return;
-			}
+    /* for (int j = 0; j < 16; j++) { */
+    for (int j = 0; j < 16; j++) {
+      const auto eqLower = _mm_xor_si128(lowerPart, WANT_MASK_1);
+      const auto eqUpper = _mm_xor_si128(upperPart, WANT_MASK_2);
 
-			lowerPart = _mm_srai_epi16(lowerPart, 1);
-			upperPart = _mm_srai_epi16(upperPart, 1);
-			/* lowerPart = _mm_srli_epi16(lowerPart, 1); */
-			/* upperPart = _mm_srli_epi16(upperPart, 1); */
-		}
-	}
+      if (_mm_test_all_ones(eqLower)) {
+        std::cout << "We did it: multi=" << std::hex << i << " and shift=" << j << "\n";
+        std::cout << "test : [" << m128toHex(TEST_VEC) << "]\n";
+        std::cout << "mul :  [" << m128toHex(mulVec) << "]\n";
+        std::cout << "lower: [" << m128toHex(origLower) << "]\n";
+        std::cout << "Sower: [" << m128toHex(lowerPart) << "]\n";
+
+        std::cout << " Pain:\n";
+        std::cout << "  - ((: " << _mm_extract_epi16(origLower, 0) << "\n";
+        std::cout << "  - (): " << _mm_extract_epi16(origLower, 1) << "\n";
+        std::cout << "  - )(: " << _mm_extract_epi16(origLower, 2) << "\n";
+        std::cout << "  - )): " << _mm_extract_epi16(origLower, 3) << "\n";
+        return;
+      }
+
+      if (_mm_test_all_ones(eqUpper)) {
+        std::cout << "We did it: multi=" << (i + 1) << " and shift=" << j << "\n";
+        /* std::cout << "upper: [" << m128toHex(_mm_xor_si128(_mm_set1_epi8(0xFF), WANT_MASK_2)) << "]\n"; */
+        std::cout << "Opper: [" << m128toHex(origUpper) << "]\n";
+        std::cout << "Spper: [" << m128toHex(upperPart) << "]\n";
+        return;
+      }
+
+      lowerPart = _mm_srai_epi16(lowerPart, 1);
+      upperPart = _mm_srai_epi16(upperPart, 1);
+      /* lowerPart = _mm_srli_epi16(lowerPart, 1); */
+      /* upperPart = _mm_srli_epi16(upperPart, 1); */
+    }
+  }
 }
 
 int
@@ -291,16 +295,16 @@ main()
 {
   ankerl::nanobench::Rng rng(10);
 
-	bruteForceIt();
+  /* bruteForceIt(); */
 
   sanityCheck(rng);
 
-  /* ankerl::nanobench::Bench b; */
+  ankerl::nanobench::Bench b;
 
-  /* runBernoulliTest(rng, "Short 50% strings", 1000, 10, 0.5); */
-  /* runBernoulliTest(rng, "Mid 50% strings", 1000, 100, 0.5); */
-  /* runBernoulliTest(rng, "Long 50% strings", 1000, 1000, 0.5); */
-  /* runBernoulliTest(rng, "Very long 50% strings", 1000, 10000, 0.5); */
+  runBernoulliTest(rng, "Short 50% strings", 1000, 10, 0.5);
+  runBernoulliTest(rng, "Mid 50% strings", 1000, 100, 0.5);
+  runBernoulliTest(rng, "Long 50% strings", 1000, 1000, 0.5);
+  runBernoulliTest(rng, "Very long 50% strings", 1000, 10000, 0.5);
 
   return 0;
 }
@@ -774,29 +778,18 @@ solveSIMD_SSE4_v4(std::string_view inputString)
   int balance = 0;
 
   // Found with z3
-  const auto MAGIC_NUM_ADD = _mm_set1_epi16(0x57AE);
-  const auto MAGIC_NUM_OR = _mm_set1_epi16(0x7F29);
-
   const auto MAGIC_MUL_PSA = _mm_set1_epi16(0xE0E0);
-  const auto MAGIC_MUL_MIN = _mm_set1_epi16(0xcca8);
-
-	std::cout << "MUL_V: [" << m128toHex(MAGIC_MUL_PSA) << "]\n";
+  const auto MAGIC_MUL_MIN = _mm_set1_epi16(0xCEE5);
 
   int i = 0;
   for (; i + 16 <= N; i += 16) {
     const auto chunk = _mm_loadu_si128(reinterpret_cast<__m128i const*>(inputString.data() + i));
-		const auto partOnePsa = _mm_mullo_epi16(chunk, MAGIC_MUL_PSA);
-    const auto startPsa = _mm_srai_epi16(partOnePsa, 12);
-
-    /* auto startPsa = _mm_srai_epi16(_mm_mullo_epi16(chunk, MAGIC_MUL_PSA), 12); */
-    const auto startMin = _mm_or_si128(_mm_add_epi16(chunk, MAGIC_NUM_ADD), MAGIC_NUM_OR);
-    /* const auto startMin = _mm_srai_epi16(_mm_mullo_epi16(chunk, MAGIC_MUL_MIN), 14); */
-		constexpr bool printRev = false;
-
+    const auto startPsa = _mm_srai_epi16(_mm_mullo_epi16(chunk, MAGIC_MUL_PSA), 12);
+    const auto startMin = _mm_srai_epi16(_mm_mullo_epi16(chunk, MAGIC_MUL_MIN), 13);
 
     auto psa = _mm_add_epi16(startPsa, _mm_bslli_si128(startPsa, 2));
-    psa = _mm_add_epi8(psa, _mm_bslli_si128(psa, 4));
-    psa = _mm_add_epi8(psa, _mm_bslli_si128(psa, 8));
+    psa = _mm_add_epi16(psa, _mm_bslli_si128(psa, 4));
+    psa = _mm_add_epi16(psa, _mm_bslli_si128(psa, 8));
 
     // Now if I have more than 16 in balance,  I can skip the next bit,
     // but I don't, since it's better to just pipeline everything.
@@ -804,26 +797,6 @@ solveSIMD_SSE4_v4(std::string_view inputString)
     min = _mm_min_epi16(min, _mm_bslli_si128(min, 2));
     min = _mm_min_epi16(min, _mm_bslli_si128(min, 4));
     min = _mm_min_epi16(min, _mm_bslli_si128(min, 8));
-
-		std::cout << "Input: [" << std::string_view(inputString.data() + i, 16) << "]\n";
-		std::cout << "Start chunk: [" << m128toHex(chunk, printRev) << "]\n";
-		const std::string_view fun(inputString.data() + i, 16);
-		std::cout << " Pain:\n"; 
-		std::cout << "  - " << fun.substr(0, 2) << ": " << _mm_extract_epi16(partOnePsa, 0) << "\n";
-		std::cout << "  - " << fun.substr(2, 2) << ": " << _mm_extract_epi16(partOnePsa, 1) << "\n";
-		std::cout << "  - " << fun.substr(4, 2) << ": " << _mm_extract_epi16(partOnePsa, 2) << "\n";
-		std::cout << "  - " << fun.substr(6, 2) << ": " << _mm_extract_epi16(partOnePsa, 3) << "\n";
-		std::cout << "  - " << fun.substr(8, 2) << ": " << _mm_extract_epi16(partOnePsa, 4) << "\n";
-		std::cout << "  - " << fun.substr(10, 2) << ": " << _mm_extract_epi16(partOnePsa, 5) << "\n";
-		std::cout << "  - " << fun.substr(12, 2) << ": " << _mm_extract_epi16(partOnePsa, 6) << "\n";
-		std::cout << "  - " << fun.substr(14, 2) << ": " << _mm_extract_epi16(partOnePsa, 7) << "\n";
-
-		std::cout << "Start Pone:  [" << m128toHex(partOnePsa, printRev) << "]\n";
-		std::cout << "Start Psa:   [" << m128toHex(startPsa, printRev) << "]\n";
-		std::cout << "Start min:   [" << m128toHex(startMin, printRev) << "]\n";
-		std::cout << "psa:         [" << m128toHex(psa, printRev) << "]\n";
-		std::cout << "min:         [" << m128toHex(min, printRev) << "]\n";
-
 
     const std::int32_t finPsa = static_cast<std::int16_t>(_mm_extract_epi16(psa, 7));
     const std::int32_t minVal = -static_cast<std::int16_t>(_mm_extract_epi16(min, 7));

@@ -4,6 +4,7 @@
 #include <array>
 #include <bitset>
 #include <charconv>
+#include <concepts>
 #include <cstdint>
 #include <string>
 
@@ -22,6 +23,17 @@
 #else
 #error Unsupported compiler
 #endif
+
+namespace simd {
+template<std::integral T>
+auto
+extract_128(const __m128i xs)
+{
+  std::array<T, 128 / sizeof(T)> out;
+  _mm_storeu_si128(reinterpret_cast<__m128i*>(out.data()), xs);
+  return out;
+}
+}
 
 template<std::size_t N>
 void
@@ -98,7 +110,7 @@ m256toHex(const __m256i x, bool reverse = false)
   s += "0x";
   appendHexToString<64>(s, first, reverse);
   appendHexToString<64>(s, second, reverse);
-	s += " ";
+  s += " ";
   appendHexToString<64>(s, third, reverse);
   appendHexToString<64>(s, fourth, reverse);
 

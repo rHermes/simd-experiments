@@ -31,18 +31,18 @@ elif BV == 16:
 
     # min function
     NEEDS = [
-            ((LB<<8) + LB, 0),
-            ((LB<<8) + RB, 0),
-            ((RB<<8) + LB, -1),
+            # ((LB<<8) + LB, 0),
+            # ((LB<<8) + RB, 0),
+            ((LB<<8) + RB, -1),
             ((RB<<8) + RB, -2),
             # ((RB<<8) + RB, -2),
             ]
 
     EXTRA_NEEDS = [
             lambda op: (op((LB<<8) + LB) >= 0),
-            lambda op: (op((LB<<8) + RB) >= 0),
-            lambda op: (z3.BVAddNoOverflow(op((LB<<8) + LB), 16, True)),
-            lambda op: (z3.BVAddNoOverflow(op((LB<<8) + RB), 16, True)),
+            lambda op: (op((RB<<8) + LB) >= 0),
+            # lambda op: (z3.BVAddNoOverflow(op((LB<<8) + LB), 16, True)),
+            # lambda op: (z3.BVAddNoOverflow(op((RB<<8) + LB), 16, True)),
     ]
 
 print([(z3.simplify(x), y) for (x,y) in NEEDS])
@@ -101,8 +101,8 @@ BIN_OPS = {
         "maxS": maxS,
         "minS": minS,
 
-        # "addSatU": saturedAddUnsigned,
-        # "addSatS": saturatedAddSigned,
+        "addSatU": saturedAddUnsigned,
+        "addSatS": saturatedAddSigned,
         "add": operator.add,
         "sub": operator.sub,
         "and": operator.and_,
@@ -113,8 +113,9 @@ BIN_OPS = {
         "lshift": operator.lshift,
         "rshift": operator.rshift,
 
-        "mullo16": mullo_16,
-        # "mull": operator.mul,
+        # "mullo16": mullo_16,
+        # THese are the same 
+        "mullo16": operator.mul,
 }
 
 
@@ -150,13 +151,13 @@ if __name__ == "__main__":
 
                 if check(s, opc1):
                     s.add(e == opc1((LB<<8) + LB))
-                    s.add(f == opc1((LB<<8) + RB))
+                    s.add(f == opc1((RB<<8) + LB))
                     s.check()
                     m = s.model()
-                    print("We did it: {}(w, {}) then {}({})".format(name1, m[a], name2, m[b] ))
-                    # print("We did it: {}(w, {:04X}) then {}({:04X}), with: op(\"((\") = {}, op(\"()\") = {}".format(
-                    #     name1, m[a].as_long(), name2, m[b].as_long(), 
-                    #     m[e].as_signed_long(), m[f].as_signed_long()))
+                    # print("We did it: {}(w, {}) then {}({})".format(name1, m[a], name2, m[b] ))
+                    print("We did it: {}(w, {:04X}) then {}({:04X}), with: op(\"((\") = {}, op(\"()\") = {}".format(
+                        name1, m[a].as_long(), name2, m[b].as_long(), 
+                        m[e].as_signed_long(), m[f].as_signed_long()))
 
                 s.pop()
 

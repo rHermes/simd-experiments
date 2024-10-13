@@ -1,7 +1,9 @@
 CXX = g++
-# CXXFLAGS = -O3 -Wall -Wextra -std=c++20 -march=x86-64-v3 -mtune=native -Iinclude
-CXXFLAGS = -O0 -g -Wall -Wextra -std=c++20 -march=x86-64-v3 -mtune=native -Iinclude
-# CXXFLAGS = -O3 -Wall -Wextra -std=c++20 -march=native -mtune=native -Iinclude
+# CXXFLAGS = -O3 -Wall -Wextra -std=c++23 -march=x86-64-v3 -mtune=native -Iinclude
+CXXFLAGS += -O3
+CXXFLAGS += -Wall -Wextra -std=c++23
+CXXFLAGS += -march=x86-64-v3 -mtune=native
+CXXFLAGS += -Iinclude
 
 all: out/leetcode-2696 out/leetcode-921
 
