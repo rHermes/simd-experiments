@@ -33,7 +33,308 @@ extract_128(const __m128i xs)
   _mm_storeu_si128(reinterpret_cast<__m128i*>(out.data()), xs);
   return out;
 }
+
+template<std::size_t Bits>
+FORCE_INLINE __m128i
+calcRunningSum(__m128i xs)
+{
+  if constexpr (Bits == 8) {
+    xs = _mm_add_epi8(xs, _mm_bslli_si128(xs, 1));
+    xs = _mm_add_epi8(xs, _mm_bslli_si128(xs, 2));
+    xs = _mm_add_epi8(xs, _mm_bslli_si128(xs, 4));
+    xs = _mm_add_epi8(xs, _mm_bslli_si128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 16) {
+    xs = _mm_add_epi16(xs, _mm_bslli_si128(xs, 2));
+    xs = _mm_add_epi16(xs, _mm_bslli_si128(xs, 4));
+    xs = _mm_add_epi16(xs, _mm_bslli_si128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 32) {
+    xs = _mm_add_epi32(xs, _mm_bslli_si128(xs, 4));
+    xs = _mm_add_epi32(xs, _mm_bslli_si128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 64) {
+    xs = _mm_add_epi64(xs, _mm_bslli_si128(xs, 8));
+    return xs;
+  } else {
+    static_assert(Bits == 8, "Bits must be 8, 16, 32 or 64");
+  }
 }
+
+template<std::size_t Bits>
+FORCE_INLINE __m256i
+calcRunningSum(__m256i xs)
+{
+  if constexpr (Bits == 8) {
+    xs = _mm256_add_epi8(xs, _mm256_bslli_epi128(xs, 1));
+    xs = _mm256_add_epi8(xs, _mm256_bslli_epi128(xs, 2));
+    xs = _mm256_add_epi8(xs, _mm256_bslli_epi128(xs, 4));
+    xs = _mm256_add_epi8(xs, _mm256_bslli_epi128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 16) {
+    xs = _mm256_add_epi16(xs, _mm256_bslli_epi128(xs, 2));
+    xs = _mm256_add_epi16(xs, _mm256_bslli_epi128(xs, 4));
+    xs = _mm256_add_epi16(xs, _mm256_bslli_epi128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 32) {
+    xs = _mm256_add_epi32(xs, _mm256_bslli_epi128(xs, 4));
+    xs = _mm256_add_epi32(xs, _mm256_bslli_epi128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 64) {
+    xs = _mm256_add_epi64(xs, _mm256_bslli_epi128(xs, 8));
+    return xs;
+  } else {
+    static_assert(Bits == 8, "Bits must be 8, 16, 32 or 64");
+  }
+}
+
+template<std::size_t Bits>
+FORCE_INLINE __m128i
+calcReverseRunningSum(__m128i xs)
+{
+  if constexpr (Bits == 8) {
+    xs = _mm_add_epi8(xs, _mm_bsrli_si128(xs, 1));
+    xs = _mm_add_epi8(xs, _mm_bsrli_si128(xs, 2));
+    xs = _mm_add_epi8(xs, _mm_bsrli_si128(xs, 4));
+    xs = _mm_add_epi8(xs, _mm_bsrli_si128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 16) {
+    xs = _mm_add_epi16(xs, _mm_bsrli_si128(xs, 2));
+    xs = _mm_add_epi16(xs, _mm_bsrli_si128(xs, 4));
+    xs = _mm_add_epi16(xs, _mm_bsrli_si128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 32) {
+    xs = _mm_add_epi32(xs, _mm_bsrli_si128(xs, 4));
+    xs = _mm_add_epi32(xs, _mm_bsrli_si128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 64) {
+    xs = _mm_add_epi64(xs, _mm_bsrli_si128(xs, 8));
+    return xs;
+  } else {
+    static_assert(Bits == 8, "Bits must be 8, 16, 32 or 64");
+  }
+}
+
+template<std::size_t Bits>
+FORCE_INLINE __m256i
+calcReverseRunningSum(__m256i xs)
+{
+  if constexpr (Bits == 8) {
+    xs = _mm256_add_epi8(xs, _mm256_bsrli_epi128(xs, 1));
+    xs = _mm256_add_epi8(xs, _mm256_bsrli_epi128(xs, 2));
+    xs = _mm256_add_epi8(xs, _mm256_bsrli_epi128(xs, 4));
+    xs = _mm256_add_epi8(xs, _mm256_bsrli_epi128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 16) {
+    xs = _mm256_add_epi16(xs, _mm256_bsrli_epi128(xs, 2));
+    xs = _mm256_add_epi16(xs, _mm256_bsrli_epi128(xs, 4));
+    xs = _mm256_add_epi16(xs, _mm256_bsrli_epi128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 32) {
+    xs = _mm256_add_epi32(xs, _mm256_bsrli_epi128(xs, 4));
+    xs = _mm256_add_epi32(xs, _mm256_bsrli_epi128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 64) {
+    xs = _mm256_add_epi64(xs, _mm256_bsrli_epi128(xs, 8));
+    return xs;
+  } else {
+    static_assert(Bits == 8, "Bits must be 8, 16, 32 or 64");
+  }
+}
+
+template<std::size_t Bits>
+FORCE_INLINE __m128i
+calcRunningMinSigned(__m128i xs)
+{
+  if constexpr (Bits == 8) {
+    xs = _mm_min_epi8(xs, _mm_bslli_si128(xs, 1));
+    xs = _mm_min_epi8(xs, _mm_bslli_si128(xs, 2));
+    xs = _mm_min_epi8(xs, _mm_bslli_si128(xs, 4));
+    xs = _mm_min_epi8(xs, _mm_bslli_si128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 16) {
+    xs = _mm_min_epi16(xs, _mm_bslli_si128(xs, 2));
+    xs = _mm_min_epi16(xs, _mm_bslli_si128(xs, 4));
+    xs = _mm_min_epi16(xs, _mm_bslli_si128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 32) {
+    xs = _mm_min_epi32(xs, _mm_bslli_si128(xs, 4));
+    xs = _mm_min_epi32(xs, _mm_bslli_si128(xs, 8));
+    return xs;
+  } else {
+    static_assert(Bits == 8, "Bits must be 8, 16, 32");
+  }
+}
+
+template<std::size_t Bits>
+FORCE_INLINE __m128i
+calcRunningMinUnsigned(__m128i xs)
+{
+  if constexpr (Bits == 8) {
+    xs = _mm_min_epu8(xs, _mm_bslli_si128(xs, 1));
+    xs = _mm_min_epu8(xs, _mm_bslli_si128(xs, 2));
+    xs = _mm_min_epu8(xs, _mm_bslli_si128(xs, 4));
+    xs = _mm_min_epu8(xs, _mm_bslli_si128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 16) {
+    xs = _mm_min_epu16(xs, _mm_bslli_si128(xs, 2));
+    xs = _mm_min_epu16(xs, _mm_bslli_si128(xs, 4));
+    xs = _mm_min_epu16(xs, _mm_bslli_si128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 32) {
+    xs = _mm_min_epu32(xs, _mm_bslli_si128(xs, 4));
+    xs = _mm_min_epu32(xs, _mm_bslli_si128(xs, 8));
+    return xs;
+  } else {
+    static_assert(Bits == 8, "Bits must be 8, 16, 32");
+  }
+}
+
+template<std::size_t Bits>
+FORCE_INLINE __m256i
+calcRunningMinSigned(__m256i xs)
+{
+  if constexpr (Bits == 8) {
+    xs = _mm256_min_epi8(xs, _mm256_bslli_epi128(xs, 1));
+    xs = _mm256_min_epi8(xs, _mm256_bslli_epi128(xs, 2));
+    xs = _mm256_min_epi8(xs, _mm256_bslli_epi128(xs, 4));
+    xs = _mm256_min_epi8(xs, _mm256_bslli_epi128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 16) {
+    xs = _mm256_min_epi16(xs, _mm256_bslli_epi128(xs, 2));
+    xs = _mm256_min_epi16(xs, _mm256_bslli_epi128(xs, 4));
+    xs = _mm256_min_epi16(xs, _mm256_bslli_epi128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 32) {
+    xs = _mm256_min_epi32(xs, _mm256_bslli_epi128(xs, 4));
+    xs = _mm256_min_epi32(xs, _mm256_bslli_epi128(xs, 8));
+    return xs;
+  } else {
+    static_assert(Bits == 8, "Bits must be 8, 16, 32");
+  }
+}
+
+template<std::size_t Bits>
+FORCE_INLINE __m256i
+calcRunningMinUnsigned(__m256i xs)
+{
+  if constexpr (Bits == 8) {
+    xs = _mm256_min_epu8(xs, _mm256_bslli_epi128(xs, 1));
+    xs = _mm256_min_epu8(xs, _mm256_bslli_epi128(xs, 2));
+    xs = _mm256_min_epu8(xs, _mm256_bslli_epi128(xs, 4));
+    xs = _mm256_min_epu8(xs, _mm256_bslli_epi128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 16) {
+    xs = _mm256_min_epu16(xs, _mm256_bslli_epi128(xs, 2));
+    xs = _mm256_min_epu16(xs, _mm256_bslli_epi128(xs, 4));
+    xs = _mm256_min_epu16(xs, _mm256_bslli_epi128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 32) {
+    xs = _mm256_min_epu32(xs, _mm256_bslli_epi128(xs, 4));
+    xs = _mm256_min_epu32(xs, _mm256_bslli_epi128(xs, 8));
+    return xs;
+  } else {
+    static_assert(Bits == 8, "Bits must be 8, 16, 32");
+  }
+}
+
+template<std::size_t Bits>
+FORCE_INLINE __m128i
+calcReverseRunningMinSigned(__m128i xs)
+{
+  if constexpr (Bits == 8) {
+    xs = _mm_min_epi8(xs, _mm_bsrli_si128(xs, 1));
+    xs = _mm_min_epi8(xs, _mm_bsrli_si128(xs, 2));
+    xs = _mm_min_epi8(xs, _mm_bsrli_si128(xs, 4));
+    xs = _mm_min_epi8(xs, _mm_bsrli_si128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 16) {
+    xs = _mm_min_epi16(xs, _mm_bsrli_si128(xs, 2));
+    xs = _mm_min_epi16(xs, _mm_bsrli_si128(xs, 4));
+    xs = _mm_min_epi16(xs, _mm_bsrli_si128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 32) {
+    xs = _mm_min_epi32(xs, _mm_bsrli_si128(xs, 4));
+    xs = _mm_min_epi32(xs, _mm_bsrli_si128(xs, 8));
+    return xs;
+  } else {
+    static_assert(Bits == 8, "Bits must be 8, 16, 32");
+  }
+}
+
+template<std::size_t Bits>
+FORCE_INLINE __m128i
+calcReverseRunningMinUnsigned(__m128i xs)
+{
+  if constexpr (Bits == 8) {
+    xs = _mm_min_epu8(xs, _mm_bsrli_si128(xs, 1));
+    xs = _mm_min_epu8(xs, _mm_bsrli_si128(xs, 2));
+    xs = _mm_min_epu8(xs, _mm_bsrli_si128(xs, 4));
+    xs = _mm_min_epu8(xs, _mm_bsrli_si128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 16) {
+    xs = _mm_min_epu16(xs, _mm_bsrli_si128(xs, 2));
+    xs = _mm_min_epu16(xs, _mm_bsrli_si128(xs, 4));
+    xs = _mm_min_epu16(xs, _mm_bsrli_si128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 32) {
+    xs = _mm_min_epu32(xs, _mm_bsrli_si128(xs, 4));
+    xs = _mm_min_epu32(xs, _mm_bsrli_si128(xs, 8));
+    return xs;
+  } else {
+    static_assert(Bits == 8, "Bits must be 8, 16, 32");
+  }
+}
+
+template<std::size_t Bits>
+FORCE_INLINE __m256i
+calcReverseRunningMinSigned(__m256i xs)
+{
+  if constexpr (Bits == 8) {
+    xs = _mm256_min_epi8(xs, _mm256_bsrli_epi128(xs, 1));
+    xs = _mm256_min_epi8(xs, _mm256_bsrli_epi128(xs, 2));
+    xs = _mm256_min_epi8(xs, _mm256_bsrli_epi128(xs, 4));
+    xs = _mm256_min_epi8(xs, _mm256_bsrli_epi128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 16) {
+    xs = _mm256_min_epi16(xs, _mm256_bsrli_epi128(xs, 2));
+    xs = _mm256_min_epi16(xs, _mm256_bsrli_epi128(xs, 4));
+    xs = _mm256_min_epi16(xs, _mm256_bsrli_epi128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 32) {
+    xs = _mm256_min_epi32(xs, _mm256_bsrli_epi128(xs, 4));
+    xs = _mm256_min_epi32(xs, _mm256_bsrli_epi128(xs, 8));
+    return xs;
+  } else {
+    static_assert(Bits == 8, "Bits must be 8, 16, 32");
+  }
+}
+
+template<std::size_t Bits>
+FORCE_INLINE __m256i
+calcReverseRunningMinUnsigned(__m256i xs)
+{
+  if constexpr (Bits == 8) {
+    xs = _mm256_min_epu8(xs, _mm256_bsrli_epi128(xs, 1));
+    xs = _mm256_min_epu8(xs, _mm256_bsrli_epi128(xs, 2));
+    xs = _mm256_min_epu8(xs, _mm256_bsrli_epi128(xs, 4));
+    xs = _mm256_min_epu8(xs, _mm256_bsrli_epi128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 16) {
+    xs = _mm256_min_epu16(xs, _mm256_bsrli_epi128(xs, 2));
+    xs = _mm256_min_epu16(xs, _mm256_bsrli_epi128(xs, 4));
+    xs = _mm256_min_epu16(xs, _mm256_bsrli_epi128(xs, 8));
+    return xs;
+  } else if constexpr (Bits == 32) {
+    xs = _mm256_min_epu32(xs, _mm256_bsrli_epi128(xs, 4));
+    xs = _mm256_min_epu32(xs, _mm256_bsrli_epi128(xs, 8));
+    return xs;
+  } else {
+    static_assert(Bits == 8, "Bits must be 8, 16, 32");
+  }
+}
+
+} // namespace simd
 
 template<std::size_t N>
 void

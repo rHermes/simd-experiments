@@ -35,6 +35,9 @@ inline int
 solveSIMD_SSE4_v4(std::string_view input);
 
 inline int
+solveSIMD_SSE4_v5(std::string_view input);
+
+inline int
 solveSIMD_AVX2(std::string_view input);
 
 inline int
@@ -95,97 +98,32 @@ runBernoulliTest(Rng&& rng, const std::string& title, const std::size_t size, co
 
   b.title(title).warmup(10).batch(size * inputLen).unit("byte");
 
-  /* b.relative(true).run("Normal", [&]() { */
-  /*   for (const auto& s : testSet) { */
-  /*     const auto r = solveNormal(s); */
-  /*     ankerl::nanobench::doNotOptimizeAway(r); */
-  /*   } */
-  /* }); */
+  const auto runTest = [&](const std::string& title, const auto& p) {
+    b.run(title, [&]() {
+      for (const auto& s : testSet) {
+        const auto r = p(s);
+        ankerl::nanobench::doNotOptimizeAway(r);
+      }
+    });
+  };
 
-  b.relative(true).run("SSE4_v1", [&]() {
-    for (const auto& s : testSet) {
-      const auto r = solveSIMD_SSE4_v1(s);
-      ankerl::nanobench::doNotOptimizeAway(r);
-    }
-  });
+  b.relative(true);
 
-  b.run("SSE4_v2", [&]() {
-    for (const auto& s : testSet) {
-      const auto r = solveSIMD_SSE4_v2(s);
-      ankerl::nanobench::doNotOptimizeAway(r);
-    }
-  });
+  /* runTest("Scalar", solveNormal); */
+  runTest("SSE4_v1", solveSIMD_SSE4_v1);
+  runTest("SSE4_v2", solveSIMD_SSE4_v2);
+  runTest("SSE4_v3", solveSIMD_SSE4_v3);
+  runTest("SSE4_v4", solveSIMD_SSE4_v4);
+  runTest("SSE4_v5", solveSIMD_SSE4_v5);
 
-  b.run("SSE4_v3", [&]() {
-    for (const auto& s : testSet) {
-      const auto r = solveSIMD_SSE4_v3(s);
-      ankerl::nanobench::doNotOptimizeAway(r);
-    }
-  });
-
-  b.run("SSE4_v4", [&]() {
-    for (const auto& s : testSet) {
-      const auto r = solveSIMD_SSE4_v4(s);
-      ankerl::nanobench::doNotOptimizeAway(r);
-    }
-  });
-
-  b.run("AVX2_v1", [&]() {
-    for (const auto& s : testSet) {
-      const auto r = solveSIMD_AVX2_v1(s);
-      ankerl::nanobench::doNotOptimizeAway(r);
-    }
-  });
-
-  b.run("AVX2_v2", [&]() {
-    for (const auto& s : testSet) {
-      const auto r = solveSIMD_AVX2_v2(s);
-      ankerl::nanobench::doNotOptimizeAway(r);
-    }
-  });
-
-  // Best performer so far
-  b.run("AVX2_v3", [&]() {
-    for (const auto& s : testSet) {
-      const auto r = solveSIMD_AVX2_v3(s);
-      ankerl::nanobench::doNotOptimizeAway(r);
-    }
-  });
-
-  b.run("AVX2_v4", [&]() {
-    for (const auto& s : testSet) {
-      const auto r = solveSIMD_AVX2_v4(s);
-      ankerl::nanobench::doNotOptimizeAway(r);
-    }
-  });
-
-  b.run("AVX2_v5", [&]() {
-    for (const auto& s : testSet) {
-      const auto r = solveSIMD_AVX2_v5(s);
-      ankerl::nanobench::doNotOptimizeAway(r);
-    }
-  });
-
-  b.run("AVX2_v6", [&]() {
-    for (const auto& s : testSet) {
-      const auto r = solveSIMD_AVX2_v6(s);
-      ankerl::nanobench::doNotOptimizeAway(r);
-    }
-  });
-
-  /* b.run("AVX2_V7", [&]() { */
-  /*   for (const auto& s : testSet) { */
-  /*     const auto r = solveSIMD_AVX2_v7(s); */
-  /*     ankerl::nanobench::doNotOptimizeAway(r); */
-  /*   } */
-  /* }); */
-
-  b.run("AVX2_v8", [&]() {
-    for (const auto& s : testSet) {
-      const auto r = solveSIMD_AVX2_v8(s);
-      ankerl::nanobench::doNotOptimizeAway(r);
-    }
-  });
+  runTest("AVX2_v1", solveSIMD_AVX2_v1);
+  runTest("AVX2_v2", solveSIMD_AVX2_v2);
+  runTest("AVX2_v3", solveSIMD_AVX2_v3);
+  runTest("AVX2_v4", solveSIMD_AVX2_v4);
+  runTest("AVX2_v5", solveSIMD_AVX2_v5);
+  runTest("AVX2_v6", solveSIMD_AVX2_v6);
+  /* runTest("AVX2_v7", solveSIMD_AVX2_v7); */
+  runTest("AVX2_v8", solveSIMD_AVX2_v8);
 }
 
 template<typename Rng>
@@ -220,6 +158,7 @@ sanityCheck(Rng&& rng)
   return true;
 }
 
+// This functions is used to ensure that z3 and simd had the same characteristic.
 void
 bruteForceIt()
 {
@@ -240,9 +179,6 @@ bruteForceIt()
   for (int i = 0; i < std::numeric_limits<std::uint16_t>::max(); i += 2) {
     mulVec = _mm_add_epi16(mulVec, INC_VEC);
 
-    if (i != 0xE0E0)
-      continue;
-
     const auto mulRes = _mm_mullo_epi16(TEST_VEC, mulVec);
     auto lowerPart = _mm_and_si128(mulRes, TEST_MASK_1);
     auto upperPart = _mm_and_si128(mulRes, TEST_MASK_2);
@@ -250,11 +186,6 @@ bruteForceIt()
     const auto origLower = lowerPart;
     const auto origUpper = upperPart;
 
-    /* std::cout << "mulRes: [" << m128toHex(mulRes) << "]\n"; */
-    /* std::cout << "lower:  [" << m128toHex(lowerPart) << "]\n"; */
-    /* std::cout << "upper:  [" << m128toHex(upperPart) << "]\n"; */
-
-    /* for (int j = 0; j < 16; j++) { */
     for (int j = 0; j < 16; j++) {
       const auto eqLower = _mm_xor_si128(lowerPart, WANT_MASK_1);
       const auto eqUpper = _mm_xor_si128(upperPart, WANT_MASK_2);
@@ -276,7 +207,6 @@ bruteForceIt()
 
       if (_mm_test_all_ones(eqUpper)) {
         std::cout << "We did it: multi=" << (i + 1) << " and shift=" << j << "\n";
-        /* std::cout << "upper: [" << m128toHex(_mm_xor_si128(_mm_set1_epi8(0xFF), WANT_MASK_2)) << "]\n"; */
         std::cout << "Opper: [" << m128toHex(origUpper) << "]\n";
         std::cout << "Spper: [" << m128toHex(upperPart) << "]\n";
         return;
@@ -284,8 +214,6 @@ bruteForceIt()
 
       lowerPart = _mm_srai_epi16(lowerPart, 1);
       upperPart = _mm_srai_epi16(upperPart, 1);
-      /* lowerPart = _mm_srli_epi16(lowerPart, 1); */
-      /* upperPart = _mm_srli_epi16(upperPart, 1); */
     }
   }
 }
@@ -319,8 +247,8 @@ solveSIMD_AVX2(std::string_view inputString)
 inline int
 solveSIMD_SSE4(std::string_view inputString)
 {
-  // Fastest so far is SSE4_v1
-  return solveSIMD_SSE4_v4(inputString);
+  // Fastest so far is SSE4_v3, with SSE4_v1 variating the least
+  return solveSIMD_SSE4_v5(inputString);
 }
 
 inline int
@@ -349,15 +277,8 @@ solveSIMD_AVX2_v7(std::string_view inputString)
     const auto rightBraces = _mm256_andnot_si256(leftBraces, ALL_SET);
     const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
 
-    auto psa = _mm256_add_epi8(valueChunk, _mm256_bslli_epi128(valueChunk, 1));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 2));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 4));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 8));
-
-    auto min = _mm256_min_epi8(psa, _mm256_bslli_epi128(psa, 1));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 2));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 4));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 8));
+    const auto psa = simd::calcRunningSum<8>(valueChunk);
+    const auto min = simd::calcRunningMinSigned<8>(psa);
 
     // ok, let's swap min and psa.
     const auto flippedPSA = _mm256_permute2x128_si256(psa, psa, 0x01);
@@ -435,25 +356,11 @@ solveSIMD_AVX2_v6(std::string_view inputString)
     const auto valueChunk1 = _mm256_or_si256(rightBraces1, ALL_ONE);
     const auto valueChunk2 = _mm256_or_si256(rightBraces2, ALL_ONE);
 
-    auto psa1 = _mm256_add_epi8(valueChunk1, _mm256_bslli_epi128(valueChunk1, 1));
-    psa1 = _mm256_add_epi8(psa1, _mm256_bslli_epi128(psa1, 2));
-    psa1 = _mm256_add_epi8(psa1, _mm256_bslli_epi128(psa1, 4));
-    psa1 = _mm256_add_epi8(psa1, _mm256_bslli_epi128(psa1, 8));
+    const auto psa1 = simd::calcRunningSum<8>(valueChunk1);
+    const auto psa2 = simd::calcRunningSum<8>(valueChunk2);
 
-    auto psa2 = _mm256_add_epi8(valueChunk2, _mm256_bslli_epi128(valueChunk2, 1));
-    psa2 = _mm256_add_epi8(psa2, _mm256_bslli_epi128(psa2, 2));
-    psa2 = _mm256_add_epi8(psa2, _mm256_bslli_epi128(psa2, 4));
-    psa2 = _mm256_add_epi8(psa2, _mm256_bslli_epi128(psa2, 8));
-
-    auto min1 = _mm256_min_epi8(psa1, _mm256_bslli_epi128(psa1, 1));
-    min1 = _mm256_min_epi8(min1, _mm256_bslli_epi128(min1, 2));
-    min1 = _mm256_min_epi8(min1, _mm256_bslli_epi128(min1, 4));
-    min1 = _mm256_min_epi8(min1, _mm256_bslli_epi128(min1, 8));
-
-    auto min2 = _mm256_min_epi8(psa2, _mm256_bslli_epi128(psa2, 1));
-    min2 = _mm256_min_epi8(min2, _mm256_bslli_epi128(min2, 2));
-    min2 = _mm256_min_epi8(min2, _mm256_bslli_epi128(min2, 4));
-    min2 = _mm256_min_epi8(min2, _mm256_bslli_epi128(min2, 8));
+    const auto min1 = simd::calcRunningMinSigned<8>(psa1);
+    const auto min2 = simd::calcRunningMinSigned<8>(psa2);
 
     // ok, let's swap min and psa.
     const auto flippedPSA1 = _mm256_permute2x128_si256(psa1, psa1, 0x01);
@@ -556,25 +463,11 @@ solveSIMD_AVX2_v5(std::string_view inputString)
     const auto valueChunk1 = _mm256_or_si256(rightBraces1, ALL_ONE);
     const auto valueChunk2 = _mm256_or_si256(rightBraces2, ALL_ONE);
 
-    auto psa1 = _mm256_add_epi8(valueChunk1, _mm256_bslli_epi128(valueChunk1, 1));
-    psa1 = _mm256_add_epi8(psa1, _mm256_bslli_epi128(psa1, 2));
-    psa1 = _mm256_add_epi8(psa1, _mm256_bslli_epi128(psa1, 4));
-    psa1 = _mm256_add_epi8(psa1, _mm256_bslli_epi128(psa1, 8));
+    const auto psa1 = simd::calcRunningSum<8>(valueChunk1);
+    const auto psa2 = simd::calcRunningSum<8>(valueChunk2);
 
-    auto psa2 = _mm256_add_epi8(valueChunk2, _mm256_bslli_epi128(valueChunk2, 1));
-    psa2 = _mm256_add_epi8(psa2, _mm256_bslli_epi128(psa2, 2));
-    psa2 = _mm256_add_epi8(psa2, _mm256_bslli_epi128(psa2, 4));
-    psa2 = _mm256_add_epi8(psa2, _mm256_bslli_epi128(psa2, 8));
-
-    auto min1 = _mm256_min_epi8(psa1, _mm256_bslli_epi128(psa1, 1));
-    min1 = _mm256_min_epi8(min1, _mm256_bslli_epi128(min1, 2));
-    min1 = _mm256_min_epi8(min1, _mm256_bslli_epi128(min1, 4));
-    min1 = _mm256_min_epi8(min1, _mm256_bslli_epi128(min1, 8));
-
-    auto min2 = _mm256_min_epi8(psa2, _mm256_bslli_epi128(psa2, 1));
-    min2 = _mm256_min_epi8(min2, _mm256_bslli_epi128(min2, 2));
-    min2 = _mm256_min_epi8(min2, _mm256_bslli_epi128(min2, 4));
-    min2 = _mm256_min_epi8(min2, _mm256_bslli_epi128(min2, 8));
+    const auto min1 = simd::calcRunningMinSigned<8>(psa1);
+    const auto min2 = simd::calcRunningMinSigned<8>(psa2);
 
     // ok, lets get these into a single lane of a
 
@@ -640,9 +533,6 @@ solveSIMD_AVX2_v5(std::string_view inputString)
   int scalarBalance = _mm256_extract_epi32(balance, 7);
   int scalarAns = _mm256_extract_epi32(ans, 7);
 
-  /* int scalarBalance = _mm256_cvtsi256_si32(balance); */
-  /* int scalarAns = _mm256_cvtsi256_si32(ans); */
-
   for (; i < N; i++) {
     if (inputString[i] == '(') {
       scalarBalance++;
@@ -676,17 +566,8 @@ solveSIMD_SSE4_v1(std::string_view inputString)
     const auto rightBraces = _mm_andnot_si128(leftBraces, ALL_SET);
     const auto valueChunk = _mm_or_si128(rightBraces, ALL_ONE);
 
-    auto psa = _mm_add_epi8(valueChunk, _mm_bslli_si128(valueChunk, 1));
-    psa = _mm_add_epi8(psa, _mm_bslli_si128(psa, 2));
-    psa = _mm_add_epi8(psa, _mm_bslli_si128(psa, 4));
-    psa = _mm_add_epi8(psa, _mm_bslli_si128(psa, 8));
-
-    // Now if I have more than 16 in balance,  I can skip the next bit,
-    // but I don't, since it's better to just pipeline everything.
-    auto min = _mm_min_epi8(psa, _mm_bslli_si128(psa, 1));
-    min = _mm_min_epi8(min, _mm_bslli_si128(min, 2));
-    min = _mm_min_epi8(min, _mm_bslli_si128(min, 4));
-    min = _mm_min_epi8(min, _mm_bslli_si128(min, 8));
+    auto psa = simd::calcRunningSum<8>(valueChunk);
+    auto min = simd::calcRunningMinSigned<8>(psa);
 
     const std::int8_t finPsa = static_cast<std::int8_t>(_mm_extract_epi8(psa, 15));
     const std::int8_t minVal = -static_cast<std::int8_t>(_mm_extract_epi8(min, 15));
@@ -722,27 +603,15 @@ solveSIMD_SSE4_v3(std::string_view inputString)
   int balance = 0;
 
   const auto ALL_ONE = _mm_set1_epi8(0x01);
-  const auto ALL_SET = _mm_set1_epi8(0xFF);
-  /* const auto INC_MASK = _mm_set_epi8(15, 14, 13, 12, 14, ) */
 
   int i = 0;
   for (; i + 16 <= N; i += 16) {
     const auto chunk = _mm_loadu_si128(reinterpret_cast<__m128i const*>(inputString.data() + i));
     const auto leftBraces = _mm_cmpeq_epi8(chunk, _mm_set1_epi8(')'));
-    /* const auto rightBraces = _mm_andnot_si128(leftBraces, ALL_SET); */
     const auto valueChunk = _mm_or_si128(leftBraces, ALL_ONE);
 
-    auto psa = _mm_add_epi8(valueChunk, _mm_bslli_si128(valueChunk, 1));
-    psa = _mm_add_epi8(psa, _mm_bslli_si128(psa, 2));
-    psa = _mm_add_epi8(psa, _mm_bslli_si128(psa, 4));
-    psa = _mm_add_epi8(psa, _mm_bslli_si128(psa, 8));
-
-    // Now if I have more than 16 in balance,  I can skip the next bit,
-    // but I don't, since it's better to just pipeline everything.
-    auto min = _mm_min_epi8(psa, _mm_bslli_si128(psa, 1));
-    min = _mm_min_epi8(min, _mm_bslli_si128(min, 2));
-    min = _mm_min_epi8(min, _mm_bslli_si128(min, 4));
-    min = _mm_min_epi8(min, _mm_bslli_si128(min, 8));
+    auto psa = simd::calcRunningSum<8>(valueChunk);
+    auto min = simd::calcRunningMinSigned<8>(psa);
 
     const std::int8_t finPsa = static_cast<std::int8_t>(_mm_extract_epi8(psa, 15));
     const std::int8_t minVal = -static_cast<std::int8_t>(_mm_extract_epi8(min, 15));
@@ -754,6 +623,55 @@ solveSIMD_SSE4_v3(std::string_view inputString)
 
   for (; i < N; i++) {
     if (inputString[i] == '(') {
+      balance++;
+    } else {
+      balance--;
+      if (balance < 0) {
+        ans++;
+        balance = 0;
+      }
+    }
+  }
+
+  return ans + balance;
+}
+
+inline int
+solveSIMD_SSE4_v5(std::string_view inputString)
+{
+  // ok, so we are going to do something different here. We are going to be reading the string
+  // backwards. This also means we can do simpler conversions.
+  // It's otherwise totally equal to SSE4_v3
+  const int N = inputString.size();
+
+  int ans = 0;
+  int balance = 0;
+
+  const auto ALL_ONE = _mm_set1_epi8(0x01);
+  /* const auto ALL_TWO = _mm_set1_epi8(0x02); */
+
+  int i = N - 1;
+  for (; 15 <= i; i -= 16) {
+    // So we are going to
+    const auto chunk = _mm_loadu_si128(reinterpret_cast<__m128i const*>(inputString.data() + i - 15));
+    // we read here from [src + i - 15, to src + i], which is 16 elements.
+
+    // left brace is now -1 and right brace is 1
+    const auto values = _mm_or_si128(_mm_sub_epi8(chunk, _mm_set1_epi8(')')), ALL_ONE);
+
+    auto psa = simd::calcReverseRunningSum<8>(values);
+    auto min = simd::calcReverseRunningMinSigned<8>(psa);
+
+    const std::int8_t finPsa = static_cast<std::int8_t>(_mm_extract_epi8(psa, 0));
+    const std::int8_t minVal = -static_cast<std::int8_t>(_mm_extract_epi8(min, 0));
+
+    const int padding = std::max(0, minVal - balance);
+    balance += finPsa + padding;
+    ans += padding;
+  }
+
+  for (; 0 <= i; i--) {
+    if (inputString[i] == ')') {
       balance++;
     } else {
       balance--;
@@ -787,16 +705,10 @@ solveSIMD_SSE4_v4(std::string_view inputString)
     const auto startPsa = _mm_srai_epi16(_mm_mullo_epi16(chunk, MAGIC_MUL_PSA), 12);
     const auto startMin = _mm_srai_epi16(_mm_mullo_epi16(chunk, MAGIC_MUL_MIN), 13);
 
-    auto psa = _mm_add_epi16(startPsa, _mm_bslli_si128(startPsa, 2));
-    psa = _mm_add_epi16(psa, _mm_bslli_si128(psa, 4));
-    psa = _mm_add_epi16(psa, _mm_bslli_si128(psa, 8));
+    const auto psa = simd::calcRunningSum<16>(startPsa);
 
-    // Now if I have more than 16 in balance,  I can skip the next bit,
-    // but I don't, since it's better to just pipeline everything.
-    auto min = _mm_add_epi16(_mm_bslli_si128(psa, 2), startMin);
-    min = _mm_min_epi16(min, _mm_bslli_si128(min, 2));
-    min = _mm_min_epi16(min, _mm_bslli_si128(min, 4));
-    min = _mm_min_epi16(min, _mm_bslli_si128(min, 8));
+    const auto paddedStartMin = _mm_add_epi16(_mm_bslli_si128(psa, 2), startMin);
+    const auto min = simd::calcRunningMinSigned<16>(paddedStartMin);
 
     const std::int32_t finPsa = static_cast<std::int16_t>(_mm_extract_epi16(psa, 7));
     const std::int32_t minVal = -static_cast<std::int16_t>(_mm_extract_epi16(min, 7));
@@ -844,17 +756,8 @@ solveSIMD_SSE4_v2(std::string_view inputString)
     const auto rightBraces = _mm_andnot_si128(leftBraces, ALL_SET);
     const auto valueChunk = _mm_or_si128(rightBraces, ALL_ONE);
 
-    auto psa = _mm_add_epi8(valueChunk, _mm_bslli_si128(valueChunk, 1));
-    psa = _mm_add_epi8(psa, _mm_bslli_si128(psa, 2));
-    psa = _mm_add_epi8(psa, _mm_bslli_si128(psa, 4));
-    psa = _mm_add_epi8(psa, _mm_bslli_si128(psa, 8));
-
-    // Now if I have more than 16 in balance,  I can skip the next bit,
-    // but I don't, since it's better to just pipeline everything.
-    auto min = _mm_min_epi8(psa, _mm_bslli_si128(psa, 1));
-    min = _mm_min_epi8(min, _mm_bslli_si128(min, 2));
-    min = _mm_min_epi8(min, _mm_bslli_si128(min, 4));
-    min = _mm_min_epi8(min, _mm_bslli_si128(min, 8));
+    const auto psa = simd::calcRunningSum<8>(valueChunk);
+    const auto min = simd::calcRunningMinSigned<8>(psa);
 
     const auto extendedMin = _mm_cvtepi8_epi32(_mm_bsrli_si128(min, 15));
     const auto extendedPsa = _mm_cvtepi8_epi32(_mm_bsrli_si128(psa, 15));
@@ -867,8 +770,6 @@ solveSIMD_SSE4_v2(std::string_view inputString)
   std::int32_t scalarMin = _mm_extract_epi32(runningMin, 0);
   std::int32_t scalarSum = _mm_extract_epi32(runningSum, 0);
 
-  /* std::cout << "Coming out we have: min = " << scalarMin << ", sum: " << scalarSum << "\n"; */
-
   for (; i < N; i++) {
     if (inputString[i] == '(') {
       scalarSum++;
@@ -878,7 +779,6 @@ solveSIMD_SSE4_v2(std::string_view inputString)
     }
   }
 
-  /* std::cout << "Coming out final we have: min = " << scalarMin << ", sum: " << scalarSum << "\n"; */
   return scalarSum - 2 * scalarMin;
 }
 
@@ -903,15 +803,8 @@ solveSIMD_AVX2_v8(std::string_view inputString)
     const auto rightBraces = _mm256_andnot_si256(leftBraces, ALL_SET);
     const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
 
-    auto psa = _mm256_add_epi8(valueChunk, _mm256_bslli_epi128(valueChunk, 1));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 2));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 4));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 8));
-
-    auto min = _mm256_min_epi8(psa, _mm256_bslli_epi128(psa, 1));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 2));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 4));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 8));
+    const auto psa = simd::calcRunningSum<8>(valueChunk);
+    const auto min = simd::calcRunningMinSigned<8>(psa);
 
     // ok, let's swap min and psa.
     const auto flippedPSA = _mm256_permute2x128_si256(psa, psa, 0x01);
@@ -968,15 +861,8 @@ solveSIMD_AVX2_v4(std::string_view inputString)
     const auto rightBraces = _mm256_andnot_si256(leftBraces, ALL_SET);
     const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
 
-    auto psa = _mm256_add_epi8(valueChunk, _mm256_bslli_epi128(valueChunk, 1));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 2));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 4));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 8));
-
-    auto min = _mm256_min_epi8(psa, _mm256_bslli_epi128(psa, 1));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 2));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 4));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 8));
+    const auto psa = simd::calcRunningSum<8>(valueChunk);
+    const auto min = simd::calcRunningMinSigned<8>(psa);
 
     // ok, let's swap min and psa.
     const auto flippedPSA = _mm256_permute2x128_si256(psa, psa, 0x01);
@@ -1047,17 +933,8 @@ solveSIMD_AVX2_v1(std::string_view inputString)
     const auto rightBraces = _mm256_andnot_si256(leftBraces, ALL_SET);
     const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
 
-    auto psa = _mm256_add_epi8(valueChunk, _mm256_bslli_epi128(valueChunk, 1));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 2));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 4));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 8));
-
-    // Now if I have more than 16 in balance,  I can skip the next bit,
-    // but I don't, since it's better to just pipeline everything.
-    auto min = _mm256_min_epi8(psa, _mm256_bslli_epi128(psa, 1));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 2));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 4));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 8));
+    const auto psa = simd::calcRunningSum<8>(valueChunk);
+    const auto min = simd::calcRunningMinSigned<8>(psa);
 
     const std::int8_t finPsa1 = static_cast<std::int8_t>(_mm256_extract_epi8(psa, 15));
     const std::int8_t minVal1 = -static_cast<std::int8_t>(_mm256_extract_epi8(min, 15));
@@ -1108,17 +985,8 @@ solveSIMD_AVX2_v2(std::string_view inputString)
     const auto rightBraces = _mm256_andnot_si256(leftBraces, ALL_SET);
     const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
 
-    auto psa = _mm256_add_epi8(valueChunk, _mm256_bslli_epi128(valueChunk, 1));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 2));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 4));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 8));
-
-    // Now if I have more than 16 in balance,  I can skip the next bit,
-    // but I don't, since it's better to just pipeline everything.
-    auto min = _mm256_min_epi8(psa, _mm256_bslli_epi128(psa, 1));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 2));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 4));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 8));
+    const auto psa = simd::calcRunningSum<8>(valueChunk);
+    const auto min = simd::calcRunningMinSigned<8>(psa);
 
     // We are going to create our favroite now.
     const auto shuffleMask = _mm256_set_m128i(_mm_set1_epi8(0xFF), _mm_set1_epi8(0x0F));
@@ -1176,15 +1044,8 @@ solveSIMD_AVX2_v3(std::string_view inputString)
     const auto rightBraces = _mm256_andnot_si256(leftBraces, ALL_SET);
     const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
 
-    auto psa = _mm256_add_epi8(valueChunk, _mm256_bslli_epi128(valueChunk, 1));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 2));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 4));
-    psa = _mm256_add_epi8(psa, _mm256_bslli_epi128(psa, 8));
-
-    auto min = _mm256_min_epi8(psa, _mm256_bslli_epi128(psa, 1));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 2));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 4));
-    min = _mm256_min_epi8(min, _mm256_bslli_epi128(min, 8));
+    const auto psa = simd::calcRunningSum<8>(valueChunk);
+    const auto min = simd::calcRunningMinSigned<8>(psa);
 
     // ok, let's swap min and psa.
     const auto flippedPSA = _mm256_permute2x128_si256(psa, psa, 0x01);

@@ -1,7 +1,7 @@
 import z3
 import operator
 
-BV = 16
+BV = 8
 BV_MAX_U = z3.BitVecVal((1 << BV)-1, BV)
 BV_MIN_U = z3.BitVecVal(0, BV)
 
@@ -13,9 +13,15 @@ LB = z3.BitVecVal(40, BV)
 RB = z3.BitVecVal(41, BV)
 
 if BV == 8:
+    # This is left focused
     NEEDS = [
             (LB, 1),
             (RB, -1)
+    ]
+
+    NEEDS = [
+            (RB, 1),
+            (LB, -1)
     ]
 
     EXTRA_NEEDS = []
@@ -95,14 +101,14 @@ BIN_OPS = {
         "id": lambda x, y: x,
         # "inv": lambda x, y: ~x,
 
-        "cmp": lambda x, y: z3.If(x == y, BV_MAX_U, BV_MIN_U),
-        "minU": minU,
-        "maxU": maxU,
-        "maxS": maxS,
-        "minS": minS,
+        # "cmp": lambda x, y: z3.If(x == y, BV_MAX_U, BV_MIN_U),
+        # "minU": minU,
+        # "maxU": maxU,
+        # "maxS": maxS,
+        # "minS": minS,
 
-        "addSatU": saturedAddUnsigned,
-        "addSatS": saturatedAddSigned,
+        # "addSatU": saturedAddUnsigned,
+        # "addSatS": saturatedAddSigned,
         "add": operator.add,
         "sub": operator.sub,
         "and": operator.and_,
@@ -115,7 +121,7 @@ BIN_OPS = {
 
         # "mullo16": mullo_16,
         # THese are the same 
-        "mullo16": operator.mul,
+        # "mullo16": operator.mul,
 }
 
 
