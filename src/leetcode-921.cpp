@@ -9,7 +9,6 @@
 #include <print>
 #include <random>
 #include <span>
-#include <stdexcept>
 #include <string>
 
 #include <immintrin.h>
@@ -70,8 +69,8 @@ void
 generateInputBernoulli(Gen&& gen, std::span<char> output, const float p)
 {
   std::bernoulli_distribution dist(p);
-  for (std::size_t i = 0; i < output.size(); i++) {
-    output[i] = dist(gen) ? '(' : ')';
+  for (auto& out : output) {
+    out = dist(gen) ? '(' : ')';
   }
 }
 
@@ -90,18 +89,18 @@ generateBernoulliTestset(Gen&& gen, const std::size_t size, const std::size_t in
 
 template<typename Rng>
 void
-runBernoulliTest(Rng&& rng, const std::string& title, const std::size_t size, const std::size_t inputLen, const float p)
+runBernoulliTest(Rng&& rng, const std::string& desc, const std::size_t size, const std::size_t inputLen, const float p)
 {
   ankerl::nanobench::Bench b;
 
   const auto testSet = generateBernoulliTestset(rng, size, inputLen, p);
 
-  b.title(title).warmup(10).batch(size * inputLen).unit("byte");
+  b.title(desc).warmup(10).batch(size * inputLen).unit("byte");
 
-  const auto runTest = [&](const std::string& title, const auto& p) {
+  const auto runTest = [&](const std::string& title, const auto& solver) {
     b.run(title, [&]() {
       for (const auto& s : testSet) {
-        const auto r = p(s);
+        const auto r = solver(s);
         ankerl::nanobench::doNotOptimizeAway(r);
       }
     });
@@ -256,8 +255,8 @@ solveSIMD_AVX2_v7(std::string_view inputString)
 {
   // Ok, so we are going to try something different now, which is to store the information to an array.
   // These are fixed size for now, to avoid extra overhead.
-  std::array<std::int8_t, 1000> psaOut;
-  std::array<std::int8_t, 1000> minOut;
+  std::array<std::int8_t, 1000> psaOut{};
+  std::array<std::int8_t, 1000> minOut{};
 
   const int N = inputString.size();
 
@@ -309,7 +308,7 @@ solveSIMD_AVX2_v7(std::string_view inputString)
 
   /* int scalarBalance = _mm256_cvtsi256_si32(balance); */
   /* int scalarAns = _mm256_cvtsi256_si32(ans); */
-  int scalarBalance = psaOut[i - 1];
+  int scalarBalance = static_cast<int>(psaOut[i - 1]);
   int scalarAns = minOut[i - 1];
 
   for (; i < N; i++) {
@@ -569,8 +568,8 @@ solveSIMD_SSE4_v1(std::string_view inputString)
     auto psa = simd::calcRunningSum<8>(valueChunk);
     auto min = simd::calcRunningMinSigned<8>(psa);
 
-    const std::int8_t finPsa = static_cast<std::int8_t>(_mm_extract_epi8(psa, 15));
-    const std::int8_t minVal = -static_cast<std::int8_t>(_mm_extract_epi8(min, 15));
+    const auto finPsa = static_cast<std::int8_t>(_mm_extract_epi8(psa, 15));
+    const auto minVal = -static_cast<std::int8_t>(_mm_extract_epi8(min, 15));
 
     const int padding = std::max(0, minVal - balance);
     balance += finPsa + padding;
@@ -613,8 +612,8 @@ solveSIMD_SSE4_v3(std::string_view inputString)
     auto psa = simd::calcRunningSum<8>(valueChunk);
     auto min = simd::calcRunningMinSigned<8>(psa);
 
-    const std::int8_t finPsa = static_cast<std::int8_t>(_mm_extract_epi8(psa, 15));
-    const std::int8_t minVal = -static_cast<std::int8_t>(_mm_extract_epi8(min, 15));
+    const auto finPsa = static_cast<std::int8_t>(_mm_extract_epi8(psa, 15));
+    const auto minVal = -static_cast<std::int8_t>(_mm_extract_epi8(min, 15));
 
     const int padding = std::max(0, minVal - balance);
     balance += finPsa + padding;

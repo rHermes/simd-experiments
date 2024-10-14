@@ -3,6 +3,9 @@
 This is a simple repository that I use to learn SIMD. As of now, there are
 mostly projects dealing with solving various leetcode tasks with SIMD.
 
+This is written to be sorta cross platform, but my primary development device
+is Linux.
+
 # Projects
 
 ## `leetcode-921`
@@ -59,4 +62,4 @@ I am very proud of the final version and it gave me tons of new topics to resear
 
 - https://uica.uops.info/
 - https://godbolt.org
-- https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#
+- https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html

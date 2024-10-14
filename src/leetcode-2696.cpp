@@ -19,7 +19,7 @@
 FORCE_INLINE __m128i
 compressInput(const __m128i input, const __m128i mask, std::uint16_t& totalHits)
 {
-  const std::uint16_t hitMask = _mm_movemask_epi8(mask);
+  const std::uint16_t hitMask = static_cast<std::uint16_t>(_mm_movemask_epi8(mask));
 
   // First we spread the 16 mask values into nibles, 4 bits
   const std::uint64_t hitMask4 = _pdep_u64(hitMask, 0x1111111111111111) * 0x0F;
@@ -35,7 +35,7 @@ compressInput(const __m128i input, const __m128i mask, std::uint16_t& totalHits)
   const auto combinedMask = _mm_set_epi64x(highMask, lowMask);
   const auto compressedInput = _mm_shuffle_epi8(input, combinedMask);
 
-  totalHits = _mm_popcnt_u64(hitMask);
+  totalHits = static_cast<std::uint16_t>(_mm_popcnt_u64(hitMask));
 
   return compressedInput;
 }
@@ -55,13 +55,13 @@ leetcode_2696_test(std::span<char> buf)
   // a, b, c and D and combine those, but it would be equally many searches, for not much gain.
   const __m128i PAT1 = _mm_setr_epi8('A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B');
   const __m128i PAT2 = _mm_setr_epi8('C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D');
-  const auto ALL_ONES = _mm_set1_epi8(0xFF);
+  const auto ALL_ONES = _mm_set1_epi8(-1);
 
   // Ok, time to try to be smart here. What we will be doing, is that we will always operate on 4 bytes at a time.
   // This is not really
 
   // We can try to read this from the beginning?
-  const int N = buf.size();
+  const int N = static_cast<int>(buf.size());
 
   int outLen = N;
 
@@ -127,7 +127,7 @@ leetcode_2696_test(std::span<char> buf)
     std::cout << "Phase output: [" << std::string_view(buf.data(), outPtr) << "]\n\n";
 #endif
 
-    int newLen = outPtr - buf.data();
+    int newLen = static_cast<int>(outPtr - buf.data());
     if (newLen == outLen) {
       break;
     }
