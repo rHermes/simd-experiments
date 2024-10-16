@@ -18,7 +18,7 @@
 
 #elif defined(_MSC_VER)
 #pragma warning(error : 4714)
-#define FORCE_INLINE __forceinline
+#define FORCE_INLINE __forceinline 
 
 #else
 #error Unsupported compiler
@@ -32,6 +32,38 @@ extract_128(const __m128i xs)
   std::array<T, 128 / sizeof(T)> out;
   _mm_storeu_si128(reinterpret_cast<__m128i*>(out.data()), xs);
   return out;
+}
+
+FORCE_INLINE __m256i
+flipLanes(const __m256i xs)
+{
+  return _mm256_permute2x128_si256(xs, xs, 0x01);
+}
+
+FORCE_INLINE __m128i
+extractUpperLane(const __m256i xs)
+{
+  return _mm256_castsi256_si128(flipLanes(xs));
+}
+
+FORCE_INLINE __m128i
+extractLowerLane(const __m256i xs)
+{
+  return _mm256_castsi256_si128(xs);
+}
+
+
+FORCE_INLINE __m128i
+flipBits(const __m128i xs)
+{
+  return _mm_xor_si128(xs, _mm_set1_epi32(-1));
+}
+
+
+FORCE_INLINE __m256i
+flipBits(const __m256i xs)
+{
+  return _mm256_xor_si256(xs, _mm256_set1_epi32(-1));
 }
 
 template<std::size_t Bits>
@@ -60,6 +92,43 @@ calcRunningSum(__m128i xs)
     static_assert(Bits == 8, "Bits must be 8, 16, 32 or 64");
   }
 }
+
+/// Switch the sign of the elements
+template<std::size_t Bits>
+FORCE_INLINE __m128i
+negate(__m128i xs)
+{
+  if constexpr (Bits == 8) {
+    return _mm_sub_epi8(_mm_setzero_si128(), xs);
+  } else if constexpr (Bits == 16) {
+    return _mm_sub_epi16(_mm_setzero_si128(), xs);
+  } else if constexpr (Bits == 32) {
+    return _mm_sub_epi32(_mm_setzero_si128(), xs);
+  } else if constexpr (Bits == 64) {
+    return _mm_sub_epi64(_mm_setzero_si128(), xs);
+  } else {
+    static_assert(Bits == 8, "Bits must be 8, 16, 32 or 64");
+  }
+}
+
+/// Switch the sign of the elements
+template<std::size_t Bits>
+FORCE_INLINE __m256i
+negate(__m256i xs)
+{
+  if constexpr (Bits == 8) {
+    return _mm256_sub_epi8(_mm256_setzero_si256(), xs);
+  } else if constexpr (Bits == 16) {
+    return _mm256_sub_epi16(_mm256_setzero_si256(), xs);
+  } else if constexpr (Bits == 32) {
+    return _mm256_sub_epi32(_mm256_setzero_si256(), xs);
+  } else if constexpr (Bits == 64) {
+    return _mm256_sub_epi64(_mm256_setzero_si256(), xs);
+  } else {
+    static_assert(Bits == 8, "Bits must be 8, 16, 32 or 64");
+  }
+}
+
 
 template<std::size_t Bits>
 FORCE_INLINE __m256i

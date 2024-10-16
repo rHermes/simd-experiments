@@ -58,6 +58,48 @@ CPUs these days.
 I am very proud of the final version and it gave me tons of new topics to research.
 
 
+## `leetcode-2938`
+
+Speedup:
+    - SSE4: 20x
+    - AVX2: 30x
+
+This is a partial solution to [Leetcode 2938](https://leetcode.com/problems/separate-black-and-white-balls/).
+The task description is:
+
+### Description
+
+There are `n` balls on a table, each ball has a color black or white.
+
+You are given a **0-indexed** binary string `s` of length `n`, where `1` and `0` represent black and white balls, respectively.
+
+In each step, you can choose two adjacent balls and swap them.
+
+_Return the **minimum** number of steps to group all the black balls to the right and all the white balls to the left._
+
+### Solution notes
+
+I ended up very pleased with this one, it took some real thinking to be able to figure this one out.
+
+The trick is to always consider the current chunk in relation to some anchor I, which is one before the current
+chunk starts. When you write `I = oldPos + lag`, we can express `oldPos` as `I - lag`, which turns out to cancel
+all references to `I` in the final expression. This means that the only state we need to keep is `answer` and `lag`.
+
+There is a bit more to it, but I it's rather elegant. Especially the fact that I chose to have `I` as one before, so
+that we can identify 0 from 1.
+
+For AVX2, I couldn't just use 1-32, because the 8 bit psa on the upper lane could overflow. So instead I did 1-16 on
+the upper lane also. and then added `16*numberOfZeros` to the sum after. This is fast because a multiplying by 16 is the
+same as left shifting 4 times.
+
+One of the slower parts here is that we need to calculate a triangle number for the number of zeros. I would ideally prefer
+to just use a lookup table for this and shuffle, but the problem is that 0 is also an option, so I would need to do some
+sort of XOR and it just felt bad.
+
+This was really nice :)
+
+### Takeaways
+
 # Sources and resources
 
 - https://uica.uops.info/
