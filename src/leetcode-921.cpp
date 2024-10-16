@@ -15,6 +15,8 @@
 
 #define VERBOSE 0
 
+namespace p921 {
+
 inline int
 solveNormal(std::string_view input);
 
@@ -62,6 +64,7 @@ solveSIMD_AVX2_v7(std::string_view input);
 
 inline int
 solveSIMD_AVX2_v8(std::string_view input);
+
 
 //
 template<typename Gen>
@@ -217,24 +220,7 @@ bruteForceIt()
   }
 }
 
-int
-main()
-{
-  ankerl::nanobench::Rng rng(10);
 
-  /* bruteForceIt(); */
-
-  sanityCheck(rng);
-
-  ankerl::nanobench::Bench b;
-
-  runBernoulliTest(rng, "Short 50% strings", 1000, 10, 0.5);
-  runBernoulliTest(rng, "Mid 50% strings", 1000, 100, 0.5);
-  runBernoulliTest(rng, "Long 50% strings", 1000, 1000, 0.5);
-  runBernoulliTest(rng, "Very long 50% strings", 1000, 10000, 0.5);
-
-  return 0;
-}
 
 inline int
 solveSIMD_AVX2(std::string_view inputString)
@@ -273,7 +259,7 @@ solveSIMD_AVX2_v7(std::string_view inputString)
   for (; i + 32 <= N; i += 32) {
     const auto chunk = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(inputString.data() + i));
     const auto leftBraces = _mm256_sub_epi8(chunk, _mm256_set1_epi8(')'));
-    const auto rightBraces = _mm256_andnot_si256(leftBraces, ALL_SET);
+    const auto rightBraces = simd::flipBits(leftBraces);
     const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
 
     const auto psa = simd::calcRunningSum<8>(valueChunk);
@@ -349,8 +335,8 @@ solveSIMD_AVX2_v6(std::string_view inputString)
     const auto leftBraces1 = _mm256_sub_epi8(chunk1, _mm256_set1_epi8(')'));
     const auto leftBraces2 = _mm256_sub_epi8(chunk2, _mm256_set1_epi8(')'));
 
-    const auto rightBraces1 = _mm256_andnot_si256(leftBraces1, ALL_SET);
-    const auto rightBraces2 = _mm256_andnot_si256(leftBraces2, ALL_SET);
+    const auto rightBraces1 = simd::flipBits(leftBraces1);
+    const auto rightBraces2 = simd::flipBits(leftBraces2);
 
     const auto valueChunk1 = _mm256_or_si256(rightBraces1, ALL_ONE);
     const auto valueChunk2 = _mm256_or_si256(rightBraces2, ALL_ONE);
@@ -456,8 +442,8 @@ solveSIMD_AVX2_v5(std::string_view inputString)
     const auto leftBraces1 = _mm256_sub_epi8(chunk1, _mm256_set1_epi8(')'));
     const auto leftBraces2 = _mm256_sub_epi8(chunk2, _mm256_set1_epi8(')'));
 
-    const auto rightBraces1 = _mm256_andnot_si256(leftBraces1, ALL_SET);
-    const auto rightBraces2 = _mm256_andnot_si256(leftBraces2, ALL_SET);
+    const auto rightBraces1 = simd::flipBits(leftBraces1);
+    const auto rightBraces2 = simd::flipBits(leftBraces2);
 
     const auto valueChunk1 = _mm256_or_si256(rightBraces1, ALL_ONE);
     const auto valueChunk2 = _mm256_or_si256(rightBraces2, ALL_ONE);
@@ -562,7 +548,7 @@ solveSIMD_SSE4_v1(std::string_view inputString)
   for (; i + 16 <= N; i += 16) {
     const auto chunk = _mm_loadu_si128(reinterpret_cast<__m128i const*>(inputString.data() + i));
     const auto leftBraces = _mm_sub_epi8(chunk, _mm_set1_epi8(')'));
-    const auto rightBraces = _mm_andnot_si128(leftBraces, ALL_SET);
+    const auto rightBraces = simd::flipBits(leftBraces);
     const auto valueChunk = _mm_or_si128(rightBraces, ALL_ONE);
 
     auto psa = simd::calcRunningSum<8>(valueChunk);
@@ -752,7 +738,7 @@ solveSIMD_SSE4_v2(std::string_view inputString)
   for (; i + 16 <= N; i += 16) {
     const auto chunk = _mm_loadu_si128(reinterpret_cast<__m128i const*>(inputString.data() + i));
     const auto leftBraces = _mm_sub_epi8(chunk, _mm_set1_epi8(')'));
-    const auto rightBraces = _mm_andnot_si128(leftBraces, ALL_SET);
+    const auto rightBraces = simd::flipBits(leftBraces);
     const auto valueChunk = _mm_or_si128(rightBraces, ALL_ONE);
 
     const auto psa = simd::calcRunningSum<8>(valueChunk);
@@ -857,7 +843,7 @@ solveSIMD_AVX2_v4(std::string_view inputString)
   for (; i + 32 <= N; i += 32) {
     const auto chunk = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(inputString.data() + i));
     const auto leftBraces = _mm256_sub_epi8(chunk, _mm256_set1_epi8(')'));
-    const auto rightBraces = _mm256_andnot_si256(leftBraces, ALL_SET);
+    const auto rightBraces = simd::flipBits(leftBraces);
     const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
 
     const auto psa = simd::calcRunningSum<8>(valueChunk);
@@ -873,7 +859,7 @@ solveSIMD_AVX2_v4(std::string_view inputString)
 
     // ok, so now we just have to compare.
     const auto totalMin = _mm256_min_epi8(min, finalMin);
-    const auto negMin = _mm256_sub_epi8(ALL_ZERO, totalMin);
+    const auto negMin = simd::negate<8>(totalMin);
 
     // now then, we are going to revesre the totalMin, since we need that.
     // ok, so this is nice, we can actually get both of them like we want by shifting 15 to the right.
@@ -1101,4 +1087,24 @@ solveNormal(std::string_view input)
   }
 
   return ans + bal;
+}
+} // namespace p921
+
+int
+main()
+{
+  ankerl::nanobench::Rng rng(10);
+
+  /* bruteForceIt(); */
+
+  p921::sanityCheck(rng);
+
+  ankerl::nanobench::Bench b;
+
+  p921::runBernoulliTest(rng, "Short 50% strings", 1000, 10, 0.5);
+  p921::runBernoulliTest(rng, "Mid 50% strings", 1000, 100, 0.5);
+  p921::runBernoulliTest(rng, "Long 50% strings", 1000, 1000, 0.5);
+  p921::runBernoulliTest(rng, "Very long 50% strings", 1000, 10000, 0.5);
+
+  return 0;
 }
