@@ -4,9 +4,9 @@ cmake_policy(SET CMP0069 NEW)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(
-        simd-experiments
+        rimd
         VERSION 0.1
-        DESCRIPTION "A collection of utilities I have created"
+        DESCRIPTION "A simd library with experiemnts"
         LANGUAGES CXX)
 
 
@@ -21,16 +21,11 @@ if(result)
     endif()
 endif()
 
-
-
-
-
 if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     set(CMAKE_CXX_STANDARD 23)
     set(CMAKE_CXX_EXTENSIONS OFF)
 
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-
 
     CHECK_CXX_COMPILER_FLAG("-march=x86-64-v3" COMPILER_SUPPORTS_MARCH)
     if (COMPILER_SUPPORTS_MARCH)
@@ -57,13 +52,7 @@ endif ()
 
 include(FetchContent)
 
-FetchContent_Declare(
-    nanobench
-    GIT_REPOSITORY https://github.com/martinus/nanobench.git
-    GIT_TAG v4.3.11
-    GIT_SHALLOW TRUE)
-
-FetchContent_MakeAvailable(nanobench)
 
 
 add_subdirectory(src)
+add_subdirectory(examples)

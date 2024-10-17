@@ -8,6 +8,19 @@ is Linux.
 
 # Projects
 
+## `rimd`
+
+This is supposed to be a sort of wrapper for SIMD functionality that would work on
+both x86 and arm. I will add things here as I learn and the aim is not to create a 
+perfect abstraction layer, there are already many many of them out there, but
+to build my own understanding.
+
+### Todo:
+
+- Create wrapper classes for 128, 256 and 512
+- Create test suite for these
+- Implement define switches for selective code inclusion.
+
 ## `leetcode-921`
 
 This is a solution to [Leetcode 921](https://leetcode.com/problems/minimum-add-to-make-parentheses-valid/).
