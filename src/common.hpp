@@ -34,6 +34,25 @@ extract_128(const __m128i xs)
   return out;
 }
 
+FORCE_INLINE __m256i
+flipLanes(const __m256i xs)
+{
+  return _mm256_permute2x128_si256(xs, xs, 0x01);
+}
+
+FORCE_INLINE __m128i
+extractUpperLane(const __m256i xs)
+{
+  return _mm256_castsi256_si128(flipLanes(xs));
+}
+
+FORCE_INLINE __m128i
+extractLowerLane(const __m256i xs)
+{
+  return _mm256_castsi256_si128(xs);
+}
+
+
 FORCE_INLINE __m128i
 flipBits(const __m128i xs)
 {
