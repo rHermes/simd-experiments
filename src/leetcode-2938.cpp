@@ -145,6 +145,9 @@ solveSIMD_SSE4_v1(std::string_view inputString)
   
   const auto POSITIONS = _mm_set_epi8(16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1);
 
+  // ok, we only use the lower postion of this
+  auto lag = _mm_setzero_si128();
+  auto update = _mm_setzero_si128();
 
   int i = 0;
   for (; i + 16 <= N; i += 16) {
@@ -153,17 +156,51 @@ solveSIMD_SSE4_v1(std::string_view inputString)
     // Ok, so how do we want to do this. We are after all 0s here.
     // ok, we have selected all zeros now
     const auto zeroSpots = _mm_sub_epi8(chunk, _mm_set1_epi8('1'));
+    // const auto zeroOnes = _mm_xor_si128(chunk, _mm_set1_epi8('1'));
+
     const auto indexes = _mm_and_si128(zeroSpots, POSITIONS);
 
     // Let's just figure out how much it costs to move everything one behind us.
     const auto revPsa = simd::calcReverseRunningSum<8>(indexes);
-    const auto cntPsaNeg = simd::calcReverseRunningSum<8>(zeroSpots);
+    const auto revZeroCount = simd::calcReverseRunningSum<8>(zeroSpots);
+    // ok, so let's think here then.
     
     // count is now the negative of how many there are.
-    const auto cntPsa = simd::negate<8>(cntPsaNeg);
+    // const auto cntPsa = simd::negate<8>(cntPsaNeg);
 
-    // ok, let's think here. We now know two things. How many positons are taken up.
+    // So now then, we I = oldPos + lag
+    // oldPos = I - lag
+
+    // ok, let's think here. We now know two things. How many positons are taken up. and the sum of all those
+    // positions.
+    // So all positions are relative to a spot 1 before the first element, we will call this number I.
+    // a = I+1, b = I+2, ...
+    //
+    // Now we now have sum of the positons that contain a zero. So let's say we have a string where b and d is 0.
+    // update = (b - oldPos) + (d - (oldPos+1))
+    // update = (I + 2 - I + lag) + (I + 4 - I + lag - 1)
+    // update = (2 + lag) + (4 + (lag-1))
+    // update = psa + (lag + (lag-1))
+    // update = psa + lag*(1 + (0-1) + ..) // (1 + (negCountPsa))
+    // update  psa + lag*(1 + (negCountPsa))
+
+    // Add the reverse psa to update.
+    update = _mm_add_epi64(update, _mm_cvtepu8_epi64(revPsa));
+
+    const auto zeroCount = _mm_cvtepu8_epi64(revZeroCount;
+    auto tmpLag = _mm_add_epi32(zeroCount, _mm_set1_epi32(1));
+    tmpLag = _mm_mul_epi32(lag, tmpLag);
+    update = _mm_add_epi64(update, tmpLag);
+
+    // Ok, now then only thing left to do is to update the lag. It will have increased with 1 for each non zero.
+    // That means that the revCount can be used for this, just in reverse. If we have 16 of them, then it's going to
+    // be 0. if we have 15 it's going to be 1. So we just do 16 + negCount. We reuse the revzero count.
+    lag = _mm_add_epi32(lag, zeroCount);
+    lag = _mm_add_epi32(lag, _mm_set1_epi32(16)));
   }
+
+  // now we just need to extract the end.
+  for (; i < N; i++) {}
 
   return 0;
 }
