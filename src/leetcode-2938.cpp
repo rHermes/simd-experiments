@@ -2,13 +2,13 @@
 
 #include "common.hpp"
 
+#include <array>
+#include <print>
+#include <random>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
-#include <array>
-#include <print>
-#include <random>
 
 #include <immintrin.h>
 
@@ -25,8 +25,6 @@ solveSIMD_SSE4_v1(std::string_view input);
 inline long long
 solveSIMD_AVX2_v1(std::string_view input);
 
-
-
 inline long long
 solveSIMD_SSE4(std::string_view input)
 {
@@ -36,7 +34,9 @@ solveSIMD_SSE4(std::string_view input)
 inline long long
 solveSIMD_AVX2(std::string_view input)
 {
-  return solveSIMD_AVX2_v1(input);
+  // Until later, when we implement this:
+  return solveScalar(input);
+  // return solveSIMD_AVX2_v1(input);
 }
 
 template<typename Gen>
@@ -70,7 +70,7 @@ runBernoulliTest(Rng&& rng, const std::string& desc, const std::size_t size, con
 
   const auto testSet = generateBernoulliTestset(rng, size, inputLen, p);
 
-  b.title(desc).warmup(10).batch(size * inputLen).unit("byte");
+  b.title(desc).warmup(10).batch(size * inputLen).unit("byte").minEpochIterations(10);
 
   const auto runTest = [&](const std::string& title, const auto& solver) {
     b.run(title, [&]() {
@@ -86,14 +86,17 @@ runBernoulliTest(Rng&& rng, const std::string& desc, const std::size_t size, con
   runTest("Scalar", solveScalar);
 
   runTest("SSE4_v1", solveSIMD_SSE4_v1);
-  runTest("AVX2_v1", solveSIMD_AVX2_v1);
+  // runTest("AVX2_v1", solveSIMD_AVX2_v1);
 }
 
 template<typename Rng>
 bool
 sanityCheck(Rng&& rng)
 {
-  const auto testSet = generateBernoulliTestset(rng, 100, 100, 0.5);
+  // const auto testSet = generateBernoulliTestset(rng, 100, 100, 0.5);
+  const auto testSet = generateBernoulliTestset(rng, 100, 65, 0.5);
+  // const auto testSet = generateBernoulliTestset(rng, 100, 32, 0.5);
+  // const auto testSet = generateBernoulliTestset(rng, 100, 14, 0.5);
 
   for (const auto& tc : testSet) {
     const auto expected = solveScalar(tc);
@@ -142,11 +145,12 @@ solveSIMD_SSE4_v1(std::string_view inputString)
   const auto ALL_ZERO = _mm_setzero_si128();
   const auto ALL_ONE = _mm_set1_epi8(0x01);
   const auto ALL_SET = _mm_set1_epi8(-1);
-  
+
   const auto POSITIONS = _mm_set_epi8(16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1);
 
-  // ok, we only use the lower postion of this
-  auto lag = _mm_setzero_si128();
+
+  // I = oldPos + lag, and in the beginning we have I = -1, so lag must be -1.
+  auto lag = _mm_set_epi32(0, 0, 0, -1);
   auto update = _mm_setzero_si128();
 
   int i = 0;
@@ -164,7 +168,7 @@ solveSIMD_SSE4_v1(std::string_view inputString)
     const auto revPsa = simd::calcReverseRunningSum<8>(indexes);
     const auto revZeroCount = simd::calcReverseRunningSum<8>(zeroSpots);
     // ok, so let's think here then.
-    
+
     // count is now the negative of how many there are.
     // const auto cntPsa = simd::negate<8>(cntPsaNeg);
 
@@ -181,28 +185,50 @@ solveSIMD_SSE4_v1(std::string_view inputString)
     // update = (I + 2 - I + lag) + (I + 4 - I + lag - 1)
     // update = (2 + lag) + (4 + (lag-1))
     // update = psa + (lag + (lag-1))
-    // update = psa + lag*(1 + (0-1) + ..) // (1 + (negCountPsa))
-    // update  psa + lag*(1 + (negCountPsa))
+    // update = psa + (numZeros*lag - TriangleNumber(numZeros-1))
+    // update = psa - (TriangleNumber(numZeros-1) - numZeros*lag)
 
     // Add the reverse psa to update.
     update = _mm_add_epi64(update, _mm_cvtepu8_epi64(revPsa));
+    
+    // Now what to take away.
+    const auto zeroCount = _mm_cvtepi8_epi32(revZeroCount);
 
-    const auto zeroCount = _mm_cvtepu8_epi64(revZeroCount;
-    auto tmpLag = _mm_add_epi32(zeroCount, _mm_set1_epi32(1));
-    tmpLag = _mm_mul_epi32(lag, tmpLag);
-    update = _mm_add_epi64(update, tmpLag);
+
+    const auto posZeroCount = simd::negate<32>(zeroCount);
+    auto triang = _mm_mul_epi32(posZeroCount, posZeroCount);
+    triang = _mm_sub_epi32(triang, posZeroCount);
+    triang = _mm_srli_epi32(triang, 1);
+
+    // So this is T(n-1)
+
+    auto tmpLag = _mm_mul_epi32(lag, zeroCount);
+    tmpLag = _mm_add_epi64(_mm_cvtepi32_epi64(triang), tmpLag);
+
+    update = _mm_sub_epi64(update, tmpLag);
+
 
     // Ok, now then only thing left to do is to update the lag. It will have increased with 1 for each non zero.
     // That means that the revCount can be used for this, just in reverse. If we have 16 of them, then it's going to
-    // be 0. if we have 15 it's going to be 1. So we just do 16 + negCount. We reuse the revzero count.
+    // be 0. if we have 15 it's going to be 1. So we just do 16 + negCount.
     lag = _mm_add_epi32(lag, zeroCount);
-    lag = _mm_add_epi32(lag, _mm_set1_epi32(16)));
+    lag = _mm_add_epi32(lag, _mm_set1_epi32(16));
   }
 
-  // now we just need to extract the end.
-  for (; i < N; i++) {}
+  long long ans = _mm_cvtsi128_si64(update);
+  long long spot = (i-1-_mm_cvtsi128_si32(lag));
 
-  return 0;
+  // std::print("We got out of the loop with: {} and {}\n", ans, spot);
+
+  // now we just need to extract the end.
+  for (; i < N; i++) {
+    if (inputString[i] == '0') {
+      ans += i - spot;
+      spot++;
+    }
+  }
+
+  return ans;
 }
 
 long long
@@ -218,16 +244,15 @@ main()
 {
   ankerl::nanobench::Rng rng(10);
 
-
   p2938::sanityCheck(rng);
 
-  /*
+
   ankerl::nanobench::Bench b;
 
   p2938::runBernoulliTest(rng, "Short 50% strings", 1000, 10, 0.5);
   p2938::runBernoulliTest(rng, "Mid 50% strings", 1000, 100, 0.5);
   p2938::runBernoulliTest(rng, "Long 50% strings", 1000, 1000, 0.5);
   p2938::runBernoulliTest(rng, "Very long 50% strings", 1000, 10000, 0.5);
-  */
+
   return 0;
 }
