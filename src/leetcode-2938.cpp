@@ -98,7 +98,8 @@ template<typename Rng>
 bool
 sanityCheck(Rng&& rng)
 {
-  const auto testSet = generateBernoulliTestset(rng, 100, 100, 0.5);
+  // const auto testSet = generateBernoulliTestset(rng, 100, 100, 0.5);
+  const auto testSet = generateBernoulliTestset(rng, 100, 100, 0.9);
   // const auto testSet = generateBernoulliTestset(rng, 100, 65, 0.5);
   // const auto testSet = generateBernoulliTestset(rng, 100, 32, 0.5);
   // const auto testSet = generateBernoulliTestset(rng, 100, 14, 0.5);
@@ -408,7 +409,6 @@ solveSIMD_AVX2_v1(std::string_view inputString)
   long long ans = _mm_cvtsi128_si64(update);
   long long spot = (static_cast<long long>(i) - 1 - _mm_cvtsi128_si32(lag));
 
-  // std::print("We got out of the loop with: {} and {}\n", ans, spot);
 
   // now we just need to extract the end.
   for (; i < N; i++) {
