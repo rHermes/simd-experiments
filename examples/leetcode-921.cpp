@@ -194,10 +194,10 @@ bruteForceIt()
 
       if (_mm_test_all_ones(eqLower)) {
         std::cout << "We did it: multi=" << std::hex << i << " and shift=" << j << "\n";
-        std::cout << "test : [" << m128toHex(TEST_VEC) << "]\n";
-        std::cout << "mul :  [" << m128toHex(mulVec) << "]\n";
-        std::cout << "lower: [" << m128toHex(origLower) << "]\n";
-        std::cout << "Sower: [" << m128toHex(lowerPart) << "]\n";
+        std::cout << "test : [" << simd::m128toHex(TEST_VEC) << "]\n";
+        std::cout << "mul :  [" << simd::m128toHex(mulVec) << "]\n";
+        std::cout << "lower: [" << simd::m128toHex(origLower) << "]\n";
+        std::cout << "Sower: [" << simd::m128toHex(lowerPart) << "]\n";
 
         std::cout << " Pain:\n";
         std::cout << "  - ((: " << _mm_extract_epi16(origLower, 0) << "\n";
@@ -209,8 +209,8 @@ bruteForceIt()
 
       if (_mm_test_all_ones(eqUpper)) {
         std::cout << "We did it: multi=" << (i + 1) << " and shift=" << j << "\n";
-        std::cout << "Opper: [" << m128toHex(origUpper) << "]\n";
-        std::cout << "Spper: [" << m128toHex(upperPart) << "]\n";
+        std::cout << "Opper: [" << simd::m128toHex(origUpper) << "]\n";
+        std::cout << "Spper: [" << simd::m128toHex(upperPart) << "]\n";
         return;
       }
 

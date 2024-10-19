@@ -102,8 +102,6 @@ negate(__m256i xs)
   }
 }
 
-namespace details {
-
 template<bool Right, int Times, typename T>
 FORCE_INLINE T
 shiftLanes(T xs)
@@ -126,41 +124,43 @@ shiftLanes(T xs)
   }
 }
 
+namespace details {
 template<std::size_t Bits,
          typename T,
-         typename F1,
-         typename F2,
-         typename F3,
-         typename F4,
-         typename F5,
-         typename F6,
-         typename F7,
-         typename F8>
+         auto& F1,
+         auto& F2,
+         auto& F3,
+         auto& F4,
+         auto& F5,
+         auto& F6,
+         auto& F7,
+         auto& F8,
+         typename... Args>
 FORCE_INLINE auto
-functionSelector(F1&& op1, F2&& op2, F3&& op3, F4&& op4, F5&& op5, F6&& op6, F7&& op7, F8&& op8)
+functionSelector(Args... args)
 {
   if constexpr (std::same_as<T, __m128i>) {
     if constexpr (Bits == 8) {
-      return op1;
+      return F1(args...);
     } else if constexpr (Bits == 16) {
-      return op2;
+      return F2(args...);
     } else if constexpr (Bits == 32) {
-      return op3;
+      return F3(args...);
     } else if constexpr (Bits == 64) {
-      return op4;
+      return F4(args...);
     } else {
       static_assert(Bits == 8, "Bits must be 8, 16, 32 or 64");
       std::unreachable();
     }
   } else if constexpr (std::same_as<T, __m256i>) {
     if constexpr (Bits == 8) {
-      return op5;
+      return F5(args...);
     } else if constexpr (Bits == 16) {
-      return op6;
+      return F6(args...);
     } else if constexpr (Bits == 32) {
-      return op7;
+      return F7(args...);
     } else if constexpr (Bits == 64) {
-      return op8;
+      return F8(args...);
     } else {
       static_assert(Bits == 8, "Bits must be 8, 16, 32 or 64");
       std::unreachable();
@@ -174,42 +174,42 @@ template<std::size_t Bits, typename T>
 FORCE_INLINE T
 addElements(T a, T b)
 {
-  return functionSelector<Bits, T>(_mm_add_epi8,
+  return functionSelector<Bits, T, _mm_add_epi8,
                                    _mm_add_epi16,
                                    _mm_add_epi32,
                                    _mm_add_epi64,
                                    _mm256_add_epi8,
                                    _mm256_add_epi16,
                                    _mm256_add_epi32,
-                                   _mm256_add_epi64)(a, b);
+                                   _mm256_add_epi64>(a, b);
 }
 
 template<std::size_t Bits, typename T>
 FORCE_INLINE T
 signedMinElements(T a, T b)
 {
-  return functionSelector<Bits, T>(_mm_min_epi8,
+  return functionSelector<Bits, T, _mm_min_epi8,
                                    _mm_min_epi16,
                                    _mm_min_epi32,
                                    _mm_min_epi64,
                                    _mm256_min_epi8,
                                    _mm256_min_epi16,
                                    _mm256_min_epi32,
-                                   _mm256_min_epi64)(a, b);
+                                   _mm256_min_epi64>(a, b);
 }
 
 template<std::size_t Bits, typename T>
 FORCE_INLINE T
 unsignedMinElements(T a, T b)
 {
-  return functionSelector<Bits, T>(_mm_min_epu8,
+  return functionSelector<Bits, T, _mm_min_epu8,
                                    _mm_min_epu16,
                                    _mm_min_epu32,
                                    _mm_min_epu64,
                                    _mm256_min_epu8,
                                    _mm256_min_epu16,
                                    _mm256_min_epu32,
-                                   _mm256_min_epu64)(a, b);
+                                   _mm256_min_epu64>(a, b);
 }
 
 /*
@@ -297,7 +297,6 @@ calcRunningMinUnsigned(T xs)
 {
   return details::genericRunningPsa<Bits, Reverse>(details::unsignedMinElements<Bits, T>, xs);
 }
-} // namespace simd
 
 template<std::size_t N>
 void
@@ -399,3 +398,4 @@ m128toBin(const __m128i x, bool reverse = false, bool show16 = false)
 
   return s;
 }
+} // namespace simd

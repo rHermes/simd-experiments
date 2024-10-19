@@ -32,7 +32,7 @@ if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
         add_compile_options("-march=x86-64-v3")
     endif ()
 
-    CHECK_CXX_COMPILER_FLAG("-march=native" COMPILER_SUPPORTS_MTUNE)
+    CHECK_CXX_COMPILER_FLAG("-mtune=native" COMPILER_SUPPORTS_MTUNE)
     if (COMPILER_SUPPORTS_MTUNE)
         add_compile_options("-mtune=native")
     endif ()
