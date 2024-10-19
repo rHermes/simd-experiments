@@ -1,6 +1,6 @@
 // The point of this file is to solve 2938.
 
-#include <rimd/core.hpp>
+#include <rimd/all.hpp>
 
 #include <array>
 #include <print>

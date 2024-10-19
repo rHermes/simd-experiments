@@ -1,4 +1,4 @@
-#include <rimd/core.hpp>
+#include <rimd/all.hpp>
 
 #include <cstdint>
 #include <immintrin.h>
