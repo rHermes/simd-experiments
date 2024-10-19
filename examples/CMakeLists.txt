@@ -11,7 +11,7 @@ function(addProg)
     set(oneValueArgs NAME)
     cmake_parse_arguments(PARSE_ARGV 0 arg "${options}" "${oneValueArgs}" "")
 
-    add_executable(${arg_NAME} "${arg_NAME}.cpp" common.hpp)
+    add_executable(${arg_NAME} "${arg_NAME}.cpp")
     if(arg_NANOBENCH)
         target_sources(${arg_NAME} PRIVATE nanobench.cpp)
         target_link_libraries(${arg_NAME} PRIVATE nanobench)
