@@ -1,6 +1,6 @@
 // The point of this file is to solve 2938.
 
-#include "common.hpp"
+#include <rimd/core.hpp>
 
 #include <array>
 #include <print>
@@ -165,8 +165,8 @@ solveSIMD_SSE4_v1(std::string_view inputString)
     const auto indexes = _mm_and_si128(zeroSpots, POSITIONS);
 
     // Let's just figure out how much it costs to move everything one behind us.
-    const auto revPsa = simd::calcReverseRunningSum<8>(indexes);
-    const auto revZeroCount = simd::calcReverseRunningSum<8>(zeroSpots);
+    const auto revPsa = rimd::calcRunningSum<8, true>(indexes);
+    const auto revZeroCount = rimd::calcRunningSum<8, true>(zeroSpots);
     // ok, so let's think here then.
 
     // count is now the negative of how many there are.
@@ -194,7 +194,7 @@ solveSIMD_SSE4_v1(std::string_view inputString)
     // Now what to take away.
     const auto zeroCount = _mm_cvtepi8_epi32(revZeroCount);
 
-    const auto posZeroCount = simd::negate<32>(zeroCount);
+    const auto posZeroCount = rimd::negate<32>(zeroCount);
     auto triang = _mm_mul_epi32(posZeroCount, posZeroCount);
     triang = _mm_sub_epi32(triang, posZeroCount);
     triang = _mm_srli_epi32(triang, 1);
@@ -254,8 +254,8 @@ solveSIMD_SSE4_v2(std::string_view inputString)
     const auto indexes = _mm_and_si128(zeroSpots, POSITIONS);
 
     // Let's just figure out how much it costs to move everything one behind us.
-    const auto revPsa = simd::calcReverseRunningSum<8>(indexes);
-    const auto revZeroCount = simd::negate<8>(simd::calcReverseRunningSum<8>(zeroSpots));
+    const auto revPsa = rimd::calcRunningSum<8, true>(indexes);
+    const auto revZeroCount = rimd::negate<8>(rimd::calcRunningSum<8, true>(zeroSpots));
 
     const auto psa = _mm_and_si128(revPsa, ONLY_FIRST_BYTE);
     const auto zeroCount = _mm_and_si128(revZeroCount, ONLY_FIRST_BYTE);
@@ -329,24 +329,24 @@ solveSIMD_AVX2_v1(std::string_view inputString)
     const auto indexes = _mm256_and_si256(zeroSpots, POSITIONS);
 
     // Let's just figure out how much it costs to move everything one behind us.
-    const auto revPsa = simd::calcReverseRunningSum<8>(indexes);
-    const auto revZeroCount = simd::calcReverseRunningSum<8>(zeroSpots);
+    const auto revPsa = rimd::calcRunningSum<8, true>(indexes);
+    const auto revZeroCount = rimd::calcRunningSum<8, true>(zeroSpots);
 
     // We are zeroing out all other parts of the array, effectivly extending them.
     const auto psa = _mm256_and_si256(revPsa, ONLY_FIRST_BYTES);
-    const auto zeroCount = _mm256_and_si256(simd::negate<8>(revZeroCount), ONLY_FIRST_BYTES);
+    const auto zeroCount = _mm256_and_si256(rimd::negate<8>(revZeroCount), ONLY_FIRST_BYTES);
 
     // Ok now we have two goals here. We need to add the upper parts.
-    const auto lowerPsa = simd::extractLowerLane(psa);
-    const auto upperPsa = simd::extractUpperLane(psa);
+    const auto lowerPsa = rimd::extractLowerLane(psa);
+    const auto upperPsa = rimd::extractUpperLane(psa);
 
     // Add the reverse psa to update.
     update = _mm_add_epi64(update, lowerPsa);
     update = _mm_add_epi64(update, upperPsa);
 
     // Now we need to add upper
-    const auto lowerZP = simd::extractLowerLane(zeroCount);
-    const auto upperZP = simd::extractUpperLane(zeroCount);
+    const auto lowerZP = rimd::extractLowerLane(zeroCount);
+    const auto upperZP = rimd::extractUpperLane(zeroCount);
 
     // OK, now let's add that to update.
     // THis is the same as adding by upperZP*16

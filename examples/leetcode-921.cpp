@@ -1,4 +1,4 @@
-#include "common.hpp"
+#include <rimd/core.hpp>
 
 #include <nanobench.h>
 
@@ -194,10 +194,10 @@ bruteForceIt()
 
       if (_mm_test_all_ones(eqLower)) {
         std::cout << "We did it: multi=" << std::hex << i << " and shift=" << j << "\n";
-        std::cout << "test : [" << simd::m128toHex(TEST_VEC) << "]\n";
-        std::cout << "mul :  [" << simd::m128toHex(mulVec) << "]\n";
-        std::cout << "lower: [" << simd::m128toHex(origLower) << "]\n";
-        std::cout << "Sower: [" << simd::m128toHex(lowerPart) << "]\n";
+        std::cout << "test : [" << rimd::m128toHex(TEST_VEC) << "]\n";
+        std::cout << "mul :  [" << rimd::m128toHex(mulVec) << "]\n";
+        std::cout << "lower: [" << rimd::m128toHex(origLower) << "]\n";
+        std::cout << "Sower: [" << rimd::m128toHex(lowerPart) << "]\n";
 
         std::cout << " Pain:\n";
         std::cout << "  - ((: " << _mm_extract_epi16(origLower, 0) << "\n";
@@ -209,8 +209,8 @@ bruteForceIt()
 
       if (_mm_test_all_ones(eqUpper)) {
         std::cout << "We did it: multi=" << (i + 1) << " and shift=" << j << "\n";
-        std::cout << "Opper: [" << simd::m128toHex(origUpper) << "]\n";
-        std::cout << "Spper: [" << simd::m128toHex(upperPart) << "]\n";
+        std::cout << "Opper: [" << rimd::m128toHex(origUpper) << "]\n";
+        std::cout << "Spper: [" << rimd::m128toHex(upperPart) << "]\n";
         return;
       }
 
@@ -258,11 +258,11 @@ solveSIMD_AVX2_v7(std::string_view inputString)
   for (; i + 32 <= N; i += 32) {
     const auto chunk = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(inputString.data() + i));
     const auto leftBraces = _mm256_sub_epi8(chunk, _mm256_set1_epi8(')'));
-    const auto rightBraces = simd::flipBits(leftBraces);
+    const auto rightBraces = rimd::flipBits(leftBraces);
     const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
 
-    const auto psa = simd::calcRunningSum<8>(valueChunk);
-    const auto min = simd::calcRunningMinSigned<8>(psa);
+    const auto psa = rimd::calcRunningSum<8>(valueChunk);
+    const auto min = rimd::calcRunningMinSigned<8>(psa);
 
     // ok, let's swap min and psa.
     const auto flippedPSA = _mm256_permute2x128_si256(psa, psa, 0x01);
@@ -333,17 +333,17 @@ solveSIMD_AVX2_v6(std::string_view inputString)
     const auto leftBraces1 = _mm256_sub_epi8(chunk1, _mm256_set1_epi8(')'));
     const auto leftBraces2 = _mm256_sub_epi8(chunk2, _mm256_set1_epi8(')'));
 
-    const auto rightBraces1 = simd::flipBits(leftBraces1);
-    const auto rightBraces2 = simd::flipBits(leftBraces2);
+    const auto rightBraces1 = rimd::flipBits(leftBraces1);
+    const auto rightBraces2 = rimd::flipBits(leftBraces2);
 
     const auto valueChunk1 = _mm256_or_si256(rightBraces1, ALL_ONE);
     const auto valueChunk2 = _mm256_or_si256(rightBraces2, ALL_ONE);
 
-    const auto psa1 = simd::calcRunningSum<8>(valueChunk1);
-    const auto psa2 = simd::calcRunningSum<8>(valueChunk2);
+    const auto psa1 = rimd::calcRunningSum<8>(valueChunk1);
+    const auto psa2 = rimd::calcRunningSum<8>(valueChunk2);
 
-    const auto min1 = simd::calcRunningMinSigned<8>(psa1);
-    const auto min2 = simd::calcRunningMinSigned<8>(psa2);
+    const auto min1 = rimd::calcRunningMinSigned<8>(psa1);
+    const auto min2 = rimd::calcRunningMinSigned<8>(psa2);
 
     // ok, let's swap min and psa.
     const auto flippedPSA1 = _mm256_permute2x128_si256(psa1, psa1, 0x01);
@@ -439,17 +439,17 @@ solveSIMD_AVX2_v5(std::string_view inputString)
     const auto leftBraces1 = _mm256_sub_epi8(chunk1, _mm256_set1_epi8(')'));
     const auto leftBraces2 = _mm256_sub_epi8(chunk2, _mm256_set1_epi8(')'));
 
-    const auto rightBraces1 = simd::flipBits(leftBraces1);
-    const auto rightBraces2 = simd::flipBits(leftBraces2);
+    const auto rightBraces1 = rimd::flipBits(leftBraces1);
+    const auto rightBraces2 = rimd::flipBits(leftBraces2);
 
     const auto valueChunk1 = _mm256_or_si256(rightBraces1, ALL_ONE);
     const auto valueChunk2 = _mm256_or_si256(rightBraces2, ALL_ONE);
 
-    const auto psa1 = simd::calcRunningSum<8>(valueChunk1);
-    const auto psa2 = simd::calcRunningSum<8>(valueChunk2);
+    const auto psa1 = rimd::calcRunningSum<8>(valueChunk1);
+    const auto psa2 = rimd::calcRunningSum<8>(valueChunk2);
 
-    const auto min1 = simd::calcRunningMinSigned<8>(psa1);
-    const auto min2 = simd::calcRunningMinSigned<8>(psa2);
+    const auto min1 = rimd::calcRunningMinSigned<8>(psa1);
+    const auto min2 = rimd::calcRunningMinSigned<8>(psa2);
 
     // ok, lets get these into a single lane of a
 
@@ -544,11 +544,11 @@ solveSIMD_SSE4_v1(std::string_view inputString)
   for (; i + 16 <= N; i += 16) {
     const auto chunk = _mm_loadu_si128(reinterpret_cast<__m128i const*>(inputString.data() + i));
     const auto leftBraces = _mm_sub_epi8(chunk, _mm_set1_epi8(')'));
-    const auto rightBraces = simd::flipBits(leftBraces);
+    const auto rightBraces = rimd::flipBits(leftBraces);
     const auto valueChunk = _mm_or_si128(rightBraces, ALL_ONE);
 
-    auto psa = simd::calcRunningSum<8>(valueChunk);
-    auto min = simd::calcRunningMinSigned<8>(psa);
+    auto psa = rimd::calcRunningSum<8>(valueChunk);
+    auto min = rimd::calcRunningMinSigned<8>(psa);
 
     const auto finPsa = static_cast<std::int8_t>(_mm_extract_epi8(psa, 15));
     const auto minVal = -static_cast<std::int8_t>(_mm_extract_epi8(min, 15));
@@ -591,8 +591,8 @@ solveSIMD_SSE4_v3(std::string_view inputString)
     const auto leftBraces = _mm_cmpeq_epi8(chunk, _mm_set1_epi8(')'));
     const auto valueChunk = _mm_or_si128(leftBraces, ALL_ONE);
 
-    auto psa = simd::calcRunningSum<8>(valueChunk);
-    auto min = simd::calcRunningMinSigned<8>(psa);
+    auto psa = rimd::calcRunningSum<8>(valueChunk);
+    auto min = rimd::calcRunningMinSigned<8>(psa);
 
     const auto finPsa = static_cast<std::int8_t>(_mm_extract_epi8(psa, 15));
     const auto minVal = -static_cast<std::int8_t>(_mm_extract_epi8(min, 15));
@@ -640,8 +640,8 @@ solveSIMD_SSE4_v5(std::string_view inputString)
     // left brace is now -1 and right brace is 1
     const auto values = _mm_or_si128(_mm_sub_epi8(chunk, _mm_set1_epi8(')')), ALL_ONE);
 
-    auto psa = simd::calcRunningSum<8, true>(values);
-    auto min = simd::calcRunningMinSigned<8, true>(psa);
+    auto psa = rimd::calcRunningSum<8, true>(values);
+    auto min = rimd::calcRunningMinSigned<8, true>(psa);
 
     const std::int8_t finPsa = static_cast<std::int8_t>(_mm_extract_epi8(psa, 0));
     const std::int8_t minVal = -static_cast<std::int8_t>(_mm_extract_epi8(min, 0));
@@ -686,10 +686,10 @@ solveSIMD_SSE4_v4(std::string_view inputString)
     const auto startPsa = _mm_srai_epi16(_mm_mullo_epi16(chunk, MAGIC_MUL_PSA), 12);
     const auto startMin = _mm_srai_epi16(_mm_mullo_epi16(chunk, MAGIC_MUL_MIN), 13);
 
-    const auto psa = simd::calcRunningSum<16>(startPsa);
+    const auto psa = rimd::calcRunningSum<16>(startPsa);
 
     const auto paddedStartMin = _mm_add_epi16(_mm_bslli_si128(psa, 2), startMin);
-    const auto min = simd::calcRunningMinSigned<16>(paddedStartMin);
+    const auto min = rimd::calcRunningMinSigned<16>(paddedStartMin);
 
     const std::int32_t finPsa = static_cast<std::int16_t>(_mm_extract_epi16(psa, 7));
     const std::int32_t minVal = -static_cast<std::int16_t>(_mm_extract_epi16(min, 7));
@@ -733,11 +733,11 @@ solveSIMD_SSE4_v2(std::string_view inputString)
   for (; i + 16 <= N; i += 16) {
     const auto chunk = _mm_loadu_si128(reinterpret_cast<__m128i const*>(inputString.data() + i));
     const auto leftBraces = _mm_sub_epi8(chunk, _mm_set1_epi8(')'));
-    const auto rightBraces = simd::flipBits(leftBraces);
+    const auto rightBraces = rimd::flipBits(leftBraces);
     const auto valueChunk = _mm_or_si128(rightBraces, ALL_ONE);
 
-    const auto psa = simd::calcRunningSum<8>(valueChunk);
-    const auto min = simd::calcRunningMinSigned<8>(psa);
+    const auto psa = rimd::calcRunningSum<8>(valueChunk);
+    const auto min = rimd::calcRunningMinSigned<8>(psa);
 
     const auto extendedMin = _mm_cvtepi8_epi32(_mm_bsrli_si128(min, 15));
     const auto extendedPsa = _mm_cvtepi8_epi32(_mm_bsrli_si128(psa, 15));
@@ -783,8 +783,8 @@ solveSIMD_AVX2_v8(std::string_view inputString)
     const auto rightBraces = _mm256_andnot_si256(leftBraces, ALL_SET);
     const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
 
-    const auto psa = simd::calcRunningSum<8>(valueChunk);
-    const auto min = simd::calcRunningMinSigned<8>(psa);
+    const auto psa = rimd::calcRunningSum<8>(valueChunk);
+    const auto min = rimd::calcRunningMinSigned<8>(psa);
 
     // ok, let's swap min and psa.
     const auto flippedPSA = _mm256_permute2x128_si256(psa, psa, 0x01);
@@ -837,11 +837,11 @@ solveSIMD_AVX2_v4(std::string_view inputString)
   for (; i + 32 <= N; i += 32) {
     const auto chunk = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(inputString.data() + i));
     const auto leftBraces = _mm256_sub_epi8(chunk, _mm256_set1_epi8(')'));
-    const auto rightBraces = simd::flipBits(leftBraces);
+    const auto rightBraces = rimd::flipBits(leftBraces);
     const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
 
-    const auto psa = simd::calcRunningSum<8>(valueChunk);
-    const auto min = simd::calcRunningMinSigned<8>(psa);
+    const auto psa = rimd::calcRunningSum<8>(valueChunk);
+    const auto min = rimd::calcRunningMinSigned<8>(psa);
 
     // ok, let's swap min and psa.
     const auto flippedPSA = _mm256_permute2x128_si256(psa, psa, 0x01);
@@ -853,7 +853,7 @@ solveSIMD_AVX2_v4(std::string_view inputString)
 
     // ok, so now we just have to compare.
     const auto totalMin = _mm256_min_epi8(min, finalMin);
-    const auto negMin = simd::negate<8>(totalMin);
+    const auto negMin = rimd::negate<8>(totalMin);
 
     // now then, we are going to revesre the totalMin, since we need that.
     // ok, so this is nice, we can actually get both of them like we want by shifting 15 to the right.
@@ -912,8 +912,8 @@ solveSIMD_AVX2_v1(std::string_view inputString)
     const auto rightBraces = _mm256_andnot_si256(leftBraces, ALL_SET);
     const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
 
-    const auto psa = simd::calcRunningSum<8>(valueChunk);
-    const auto min = simd::calcRunningMinSigned<8>(psa);
+    const auto psa = rimd::calcRunningSum<8>(valueChunk);
+    const auto min = rimd::calcRunningMinSigned<8>(psa);
 
     const std::int8_t finPsa1 = static_cast<std::int8_t>(_mm256_extract_epi8(psa, 15));
     const std::int8_t minVal1 = -static_cast<std::int8_t>(_mm256_extract_epi8(min, 15));
@@ -964,8 +964,8 @@ solveSIMD_AVX2_v2(std::string_view inputString)
     const auto rightBraces = _mm256_andnot_si256(leftBraces, ALL_SET);
     const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
 
-    const auto psa = simd::calcRunningSum<8>(valueChunk);
-    const auto min = simd::calcRunningMinSigned<8>(psa);
+    const auto psa = rimd::calcRunningSum<8>(valueChunk);
+    const auto min = rimd::calcRunningMinSigned<8>(psa);
 
     // We are going to create our favroite now.
     const auto shuffleMask = _mm256_set_m128i(_mm_set1_epi8(0xFF), _mm_set1_epi8(0x0F));
@@ -1023,8 +1023,8 @@ solveSIMD_AVX2_v3(std::string_view inputString)
     const auto rightBraces = _mm256_andnot_si256(leftBraces, ALL_SET);
     const auto valueChunk = _mm256_or_si256(rightBraces, ALL_ONE);
 
-    const auto psa = simd::calcRunningSum<8>(valueChunk);
-    const auto min = simd::calcRunningMinSigned<8>(psa);
+    const auto psa = rimd::calcRunningSum<8>(valueChunk);
+    const auto min = rimd::calcRunningMinSigned<8>(psa);
 
     // ok, let's swap min and psa.
     const auto flippedPSA = _mm256_permute2x128_si256(psa, psa, 0x01);

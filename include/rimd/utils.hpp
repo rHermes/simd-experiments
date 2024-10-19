@@ -1,5 +1,4 @@
 #pragma once
-
 #include <algorithm>
 #include <array>
 #include <bitset>
@@ -26,7 +25,8 @@
 #error Unsupported compiler
 #endif
 
-namespace simd {
+namespace rimd {
+
 template<std::integral T>
 auto
 extract_128(const __m128i xs)
@@ -170,46 +170,53 @@ functionSelector(Args... args)
     std::unreachable();
   }
 }
+
 template<std::size_t Bits, typename T>
 FORCE_INLINE T
 addElements(T a, T b)
 {
-  return functionSelector<Bits, T, _mm_add_epi8,
-                                   _mm_add_epi16,
-                                   _mm_add_epi32,
-                                   _mm_add_epi64,
-                                   _mm256_add_epi8,
-                                   _mm256_add_epi16,
-                                   _mm256_add_epi32,
-                                   _mm256_add_epi64>(a, b);
+  return functionSelector<Bits,
+                          T,
+                          _mm_add_epi8,
+                          _mm_add_epi16,
+                          _mm_add_epi32,
+                          _mm_add_epi64,
+                          _mm256_add_epi8,
+                          _mm256_add_epi16,
+                          _mm256_add_epi32,
+                          _mm256_add_epi64>(a, b);
 }
 
 template<std::size_t Bits, typename T>
 FORCE_INLINE T
 signedMinElements(T a, T b)
 {
-  return functionSelector<Bits, T, _mm_min_epi8,
-                                   _mm_min_epi16,
-                                   _mm_min_epi32,
-                                   _mm_min_epi64,
-                                   _mm256_min_epi8,
-                                   _mm256_min_epi16,
-                                   _mm256_min_epi32,
-                                   _mm256_min_epi64>(a, b);
+  return functionSelector<Bits,
+                          T,
+                          _mm_min_epi8,
+                          _mm_min_epi16,
+                          _mm_min_epi32,
+                          _mm_min_epi64,
+                          _mm256_min_epi8,
+                          _mm256_min_epi16,
+                          _mm256_min_epi32,
+                          _mm256_min_epi64>(a, b);
 }
 
 template<std::size_t Bits, typename T>
 FORCE_INLINE T
 unsignedMinElements(T a, T b)
 {
-  return functionSelector<Bits, T, _mm_min_epu8,
-                                   _mm_min_epu16,
-                                   _mm_min_epu32,
-                                   _mm_min_epu64,
-                                   _mm256_min_epu8,
-                                   _mm256_min_epu16,
-                                   _mm256_min_epu32,
-                                   _mm256_min_epu64>(a, b);
+  return functionSelector<Bits,
+                          T,
+                          _mm_min_epu8,
+                          _mm_min_epu16,
+                          _mm_min_epu32,
+                          _mm_min_epu64,
+                          _mm256_min_epu8,
+                          _mm256_min_epu16,
+                          _mm256_min_epu32,
+                          _mm256_min_epu64>(a, b);
 }
 
 /*
@@ -398,4 +405,5 @@ m128toBin(const __m128i x, bool reverse = false, bool show16 = false)
 
   return s;
 }
+
 } // namespace simd

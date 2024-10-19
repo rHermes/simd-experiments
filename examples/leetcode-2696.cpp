@@ -1,5 +1,3 @@
-#include "common.hpp"
-
 #include <rimd/core.hpp>
 
 #include <cstdint>
