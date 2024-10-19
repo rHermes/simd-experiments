@@ -46,6 +46,8 @@ function(addProg)
     else()
         target_compile_options(${arg_NAME} PRIVATE -Wall -Wextra -Wpedantic)
         target_compile_options(${arg_NAME} PRIVATE -Wno-overflow)
+        # I don't know what this error is, so I'm disabling it for now.
+        target_compile_options(${arg_NAME} PRIVATE -Wno-ignored-attributes)
     endif()
 endfunction()
 

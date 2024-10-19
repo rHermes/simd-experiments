@@ -248,7 +248,6 @@ solveSIMD_AVX2_v7(std::string_view inputString)
 
   const auto ALL_ZERO = _mm256_setzero_si256();
   const auto ALL_ONE = _mm256_set1_epi8(0x01);
-  const auto ALL_SET = _mm256_set1_epi8(0xFF);
 
   /* auto ans = _mm256_setzero_si256(); */
   /* auto balance = _mm256_setzero_si256(); */
@@ -322,7 +321,6 @@ solveSIMD_AVX2_v6(std::string_view inputString)
 
   const auto ALL_ZERO = _mm256_setzero_si256();
   const auto ALL_ONE = _mm256_set1_epi8(0x01);
-  const auto ALL_SET = _mm256_set1_epi8(0xFF);
 
   auto ans = _mm256_setzero_si256();
   auto balance = _mm256_setzero_si256();
@@ -429,7 +427,6 @@ solveSIMD_AVX2_v5(std::string_view inputString)
 
   const auto ALL_ZERO = _mm256_setzero_si256();
   const auto ALL_ONE = _mm256_set1_epi8(0x01);
-  const auto ALL_SET = _mm256_set1_epi8(0xFF);
 
   auto ans = _mm256_setzero_si256();
   auto balance = _mm256_setzero_si256();
@@ -542,7 +539,6 @@ solveSIMD_SSE4_v1(std::string_view inputString)
   int balance = 0;
 
   const auto ALL_ONE = _mm_set1_epi8(0x01);
-  const auto ALL_SET = _mm_set1_epi8(0xFF);
 
   int i = 0;
   for (; i + 16 <= N; i += 16) {
@@ -644,8 +640,8 @@ solveSIMD_SSE4_v5(std::string_view inputString)
     // left brace is now -1 and right brace is 1
     const auto values = _mm_or_si128(_mm_sub_epi8(chunk, _mm_set1_epi8(')')), ALL_ONE);
 
-    auto psa = simd::calcReverseRunningSum<8>(values);
-    auto min = simd::calcReverseRunningMinSigned<8>(psa);
+    auto psa = simd::calcRunningSum<8, true>(values);
+    auto min = simd::calcRunningMinSigned<8, true>(psa);
 
     const std::int8_t finPsa = static_cast<std::int8_t>(_mm_extract_epi8(psa, 0));
     const std::int8_t minVal = -static_cast<std::int8_t>(_mm_extract_epi8(min, 0));
@@ -727,7 +723,6 @@ solveSIMD_SSE4_v2(std::string_view inputString)
   // instead and handle the output at the end.
 
   const auto ALL_ONE = _mm_set1_epi8(0x01);
-  const auto ALL_SET = _mm_set1_epi8(0xFF);
   const auto ALL_ZERO = _mm_setzero_si128();
 
   // 32 bit running sum min
@@ -834,7 +829,6 @@ solveSIMD_AVX2_v4(std::string_view inputString)
 
   const auto ALL_ZERO = _mm256_setzero_si256();
   const auto ALL_ONE = _mm256_set1_epi8(0x01);
-  const auto ALL_SET = _mm256_set1_epi8(0xFF);
 
   auto ans = _mm256_setzero_si256();
   auto balance = _mm256_setzero_si256();

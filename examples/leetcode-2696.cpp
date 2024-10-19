@@ -1,5 +1,7 @@
 #include "common.hpp"
 
+#include <rimd/core.hpp>
+
 #include <cstdint>
 #include <immintrin.h>
 #include <iostream>
@@ -46,15 +48,14 @@ leetcode_2696_test(std::span<char> buf)
 {
   using namespace std::literals;
 
-#ifdef VERBOSE
-  std::cout << "Total input: [" << std::string_view(buf.begin(), buf.end()) << "]\n";
-#endif
+  const rimd::Uint8x16 PAT1 =
+    _mm_setr_epi8('A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B');
+  const rimd::Uint8x16 PAT2 =
+    _mm_setr_epi8('C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D');
 
   // ok, there are a couple of ways we can do this, but I think the best
   // would be to do 4 comparisons. We could also just search 4 times for
   // a, b, c and D and combine those, but it would be equally many searches, for not much gain.
-  const __m128i PAT1 = _mm_setr_epi8('A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B', 'A', 'B');
-  const __m128i PAT2 = _mm_setr_epi8('C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D', 'C', 'D');
   const auto ALL_ONES = _mm_set1_epi8(-1);
 
   // Ok, time to try to be smart here. What we will be doing, is that we will always operate on 4 bytes at a time.
