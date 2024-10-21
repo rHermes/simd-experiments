@@ -397,4 +397,5 @@ m128toBin(const __m128i x, bool reverse = false, bool show16 = false)
   return s;
 }
 
+
 } // namespace simd
