@@ -113,6 +113,25 @@ This was really nice :)
 
 ### Takeaways
 
+## `leetcode-67`
+
+
+### Solution notes
+
+I used z3 to find the 79, trick, though it should have been obvious when I look back at it. The code I used was:
+
+```python
+import z3
+
+zeroK = z3.BitVecVal(ord('0'), 8)
+oneK = z3.BitVecVal(ord('1'), 8)
+wantK = z3.BitVecVal(0b1000_0000, 8)
+
+a = z3.BitVec("a", 8)
+
+z3.solve([((zeroK+a) & wantK) == 0, ((oneK+a) & wantK) != 0])
+```
+
 # Sources and resources
 
 - https://uica.uops.info/

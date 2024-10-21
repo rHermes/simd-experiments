@@ -59,6 +59,7 @@ public:
     m_data = _mm_set_epi8(s15, s14, s13, s12, s11, s10, s9, s8, s7, s6, s5, s4, s3, s2, s1, s0);
   }
   FORCE_INLINE explicit Uint8x16(const std::uint8_t s0) { m_data = _mm_set1_epi8(s0); }
+  FORCE_INLINE explicit Uint8x16(const std::uint64_t s1, const std::uint64_t s0) { m_data = _mm_set_epi64x(s1, s0); }
 
   FORCE_INLINE operator __m128i() const { return m_data; }
 
@@ -73,6 +74,8 @@ public:
   {
     return _mm_loadu_si128(static_cast<const __m128i*>(ptr));
   }
+
+  FORCE_INLINE void writeUnaligned(void* ptr) const { return _mm_storeu_si128(static_cast<__m128i*>(ptr), m_data); }
 
   [[nodiscard]] FORCE_INLINE __m128i data() const { return m_data; }
 
