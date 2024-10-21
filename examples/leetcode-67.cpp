@@ -35,8 +35,8 @@ inline std::string
 solveSIMD_AVX2(std::string_view input1, std::string_view input2)
 {
   // Until later, when we implement this:
-  return solveScalar(input1, input2);
-  // return solveSIMD_AVX2_v1(input1, input2);
+  // return solveScalar(input1, input2);
+  return solveSIMD_AVX2_v1(input1, input2);
 }
 
 template<typename Gen>
@@ -45,7 +45,7 @@ generateInputBernoulli(Gen&& gen, std::span<char> output, const float p)
 {
   std::bernoulli_distribution dist(p);
   int outIdx = 0;
-  for (int i = 0; i < output.size(); i++) {
+  for (std::size_t i = 0; i < output.size(); i++) {
     bool putOne = dist(gen);
     if (putOne || outIdx != 0) {
       output[outIdx++] = putOne ? '1' : '0';
@@ -66,9 +66,9 @@ generateBernoulliTestset(Gen&& gen, const std::size_t size, const std::size_t in
   std::vector<std::pair<std::string, std::string>> strings(size);
   for (auto& [s1, s2] : strings) {
     s1.resize_and_overwrite(
-      inputLen, [&](char* ptr, size_t sz) { return generateInputBernoulli(gen, std::span<char>(ptr, inputLen), p); });
+      inputLen, [&](char* ptr, size_t) { return generateInputBernoulli(gen, std::span<char>(ptr, inputLen), p); });
     s2.resize_and_overwrite(
-      inputLen, [&](char* ptr, size_t sz) { return generateInputBernoulli(gen, std::span<char>(ptr, inputLen), p); });
+      inputLen, [&](char* ptr, size_t) { return generateInputBernoulli(gen, std::span<char>(ptr, inputLen), p); });
   }
 
   return strings;
@@ -99,7 +99,7 @@ runBernoulliTest(Rng&& rng, const std::string& desc, const std::size_t size, con
 
   runTest("SSE4_v1", solveSIMD_SSE4_v1);
 
-  // runTest("AVX2_v1", solveSIMD_AVX2_v1);
+  runTest("AVX2_v1", solveSIMD_AVX2_v1);
 }
 
 template<typename Rng>
@@ -121,6 +121,7 @@ sanityCheck(Rng&& rng)
     const auto avx2 = solveSIMD_AVX2(tc1, tc2);
 
     if (sse4 != expected && avx2 != expected) {
+      std::print("A: {:>26}\nB: {:>26}\nC: {:>26}\nD: {:>26}\nD: {:>26}\n", tc1, tc2, expected, sse4, avx2);
       std::print("We expected {}, but sse4 got: {}, and avx2: {}\n", expected, sse4, avx2);
       return false;
     }
@@ -150,7 +151,7 @@ solveScalar(std::string_view inputString1, std::string_view inputString2)
   const int N2 = inputString2.size();
 
   std::string out;
-  out.resize_and_overwrite(N1 + 1, [&](char* const ptr, size_t sz) {
+  out.resize_and_overwrite(N1 + 1, [&](char* const ptr, size_t) {
     // ok now then how do I do this. How do I know if it is going to overflow? Answer is I really don't, so we just
     // write this in reverse and hope for the best.
     bool carry = false;
@@ -201,7 +202,7 @@ solveSIMD_SSE4_v1(std::string_view input1, std::string_view input2)
   const int N2 = input2.size();
 
   std::string out;
-  out.resize_and_overwrite(N1 + 1, [&](char* const ptr, size_t sz) {
+  out.resize_and_overwrite(N1 + 1, [&](char* const ptr, size_t) {
     // Ok, so we are reading from the back here.
     auto readPtr1 = input1.data() + N1;
     auto readPtr2 = input2.data() + N2;
@@ -264,6 +265,28 @@ solveSIMD_SSE4_v1(std::string_view input1, std::string_view input2)
       carry = (b1 && b2) || ((b1 != b2) && carry);
     }
 
+    while (input1.data() <= readPtr1 - 16) {
+      readPtr1 -= 16;
+      writePtr -= 16;
+      const auto chunk1 = rimd::Uint8x16::LoadUnaligned(readPtr1);
+      const auto revChunk1 = _mm_shuffle_epi8(chunk1, REVERSE_SHUFFLE_MASK);
+      const auto values1 = _mm_add_epi8(revChunk1, SIMD_MASK);
+      const std::uint32_t mm1 = _mm_movemask_epi8(values1);
+      std::uint32_t res = mm1 + carry;
+      carry = res >> 16;
+
+      // ok, now need to rewrite stuff.
+      const auto outLower = _pdep_u64(res, 0x0101010101010101);
+      const auto outUpper = _pdep_u64(res >> 8, 0x0101010101010101);
+      const rimd::Uint8x16 result(outUpper, outLower);
+
+      // ok now we just gotta OR it with 0
+      const rimd::Uint8x16 charsOut = _mm_or_si128(result, ASCII_ZERO);
+      const rimd::Uint8x16 revChars = _mm_shuffle_epi8(charsOut, REVERSE_SHUFFLE_MASK);
+
+      revChars.writeUnaligned(writePtr);
+    }
+
     // now then we just process the s1 string.
     while (input1.data() < readPtr1) {
       const bool b1 = *--readPtr1 == '1';
@@ -288,7 +311,138 @@ solveSIMD_SSE4_v1(std::string_view input1, std::string_view input2)
 std::string
 solveSIMD_AVX2_v1(std::string_view input1, std::string_view input2)
 {
-  return "";
+  if (input1.size() < input2.size())
+    std::swap(input1, input2);
+
+  const int N1 = input1.size();
+  const int N2 = input2.size();
+
+  std::string out;
+  out.resize_and_overwrite(N1 + 1, [&](char* const ptr, size_t) {
+    // Ok, so we are reading from the back here.
+    auto readPtr1 = input1.data() + N1;
+    auto readPtr2 = input2.data() + N2;
+
+    const __m256i SIMD_MASK = _mm256_set1_epi8(79);
+    const __m256i ASCII_ZERO = _mm256_set1_epi8('0');
+    const __m256i REVERSE_SHUFFLE_MASK =
+      _mm256_set_epi64x(0x0001020304050607ull, 0x08090A0B0C0D0E0Full, 0x0001020304050607ull, 0x08090A0B0C0D0E0Full);
+
+    unsigned char carry = 0;
+
+    auto writePtr = ptr + N1 + 1;
+
+    while (input2.data() <= readPtr2 - 32) {
+      readPtr1 -= 32;
+      readPtr2 -= 32;
+      writePtr -= 32;
+      const auto chunk1 = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(readPtr1));
+      const auto chunk2 = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(readPtr2));
+
+      // It's very unfortunate that we are reading backwards, because it affects how we are building our movemask, so
+      // we need to sbuffle these to reverse them.
+      const auto revChunk1 = _mm256_shuffle_epi8(chunk1, REVERSE_SHUFFLE_MASK);
+      const auto revChunk2 = _mm256_shuffle_epi8(chunk2, REVERSE_SHUFFLE_MASK);
+
+      // Now to swap the numbers.
+      const auto realRevChunk1 = rimd::flipLanes(revChunk1);
+      const auto realRevChunk2 = rimd::flipLanes(revChunk2);
+
+      // This is dirty as fuck, but found with z3. We just need to set the most siginifcant bit, so no need to do
+      // all the comparisons, we simply add by 79, which brings '1' over the edge, but not '0'.
+      const auto values1 = _mm256_add_epi8(realRevChunk1, SIMD_MASK);
+      const auto values2 = _mm256_add_epi8(realRevChunk2, SIMD_MASK);
+
+      // Ok, now we create our movemasks.
+      const std::uint32_t mm1 = _mm256_movemask_epi8(values1);
+      const std::uint32_t mm2 = _mm256_movemask_epi8(values2);
+
+      std::uint32_t res;
+      carry = _addcarryx_u32(carry, mm1, mm2, &res);
+
+      // ok, now need to rewrite stuff.
+      const auto out0 = _pdep_u64(res, 0x0101010101010101);
+      const auto out1 = _pdep_u64(res >> 8, 0x0101010101010101);
+      const auto out2 = _pdep_u64(res >> 16, 0x0101010101010101);
+      const auto out3 = _pdep_u64(res >> 24, 0x0101010101010101);
+
+      const auto result = _mm256_set_epi64x(out1, out0, out3, out2);
+
+      // ok now we just gotta OR it with 0
+      const auto charsOut = _mm256_or_si256(result, ASCII_ZERO);
+      const auto revChars = _mm256_shuffle_epi8(charsOut, REVERSE_SHUFFLE_MASK);
+
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(writePtr), revChars);
+    }
+
+    // std::print("WTF: {}\n", std::string_view{writePtr, ptr+N1+1});
+
+    while (input2.data() < readPtr2) {
+      const bool b1 = *--readPtr1 == '1';
+      const bool b2 = *--readPtr2 == '1';
+      const bool thisOut = (b1 != b2) != carry;
+
+      *--writePtr = thisOut ? '1' : '0';
+
+      carry = (b1 && b2) || ((b1 != b2) && carry);
+    }
+
+    while (input1.data() <= readPtr1 - 32) {
+      readPtr1 -= 32;
+      writePtr -= 32;
+      const auto chunk1 = _mm256_loadu_si256(reinterpret_cast<__m256i const*>(readPtr1));
+
+      // It's very unfortunate that we are reading backwards, because it affects how we are building our movemask, so
+      // we need to sbuffle these to reverse them.
+      const auto revChunk1 = _mm256_shuffle_epi8(chunk1, REVERSE_SHUFFLE_MASK);
+
+      // Now to swap the numbers.
+      const auto realRevChunk1 = rimd::flipLanes(revChunk1);
+
+      // This is dirty as fuck, but found with z3. We just need to set the most siginifcant bit, so no need to do
+      // all the comparisons, we simply add by 79, which brings '1' over the edge, but not '0'.
+      const auto values1 = _mm256_add_epi8(realRevChunk1, SIMD_MASK);
+
+      // Ok, now we create our movemasks.
+      const std::uint32_t mm1 = _mm256_movemask_epi8(values1);
+
+      std::uint32_t res;
+      carry = _addcarryx_u32(carry, mm1, 0, &res);
+
+      // ok, now need to rewrite stuff.
+      const auto out0 = _pdep_u64(res, 0x0101010101010101);
+      const auto out1 = _pdep_u64(res >> 8, 0x0101010101010101);
+      const auto out2 = _pdep_u64(res >> 16, 0x0101010101010101);
+      const auto out3 = _pdep_u64(res >> 24, 0x0101010101010101);
+
+      const auto result = _mm256_set_epi64x(out1, out0, out3, out2);
+
+      // ok now we just gotta OR it with 0
+      const auto charsOut = _mm256_or_si256(result, ASCII_ZERO);
+      const auto revChars = _mm256_shuffle_epi8(charsOut, REVERSE_SHUFFLE_MASK);
+
+      _mm256_storeu_si256(reinterpret_cast<__m256i*>(writePtr), revChars);
+    }
+
+    // now then we just process the s1 string.
+    while (input1.data() < readPtr1) {
+      const bool b1 = *--readPtr1 == '1';
+      const bool thisOut = b1 != carry;
+      *--writePtr = thisOut ? '1' : '0';
+      carry = b1 && carry;
+    }
+
+    if (carry) {
+      // We add a one then reverse, otherwise we don't
+      *--writePtr = '1';
+      return N1 + 1;
+    } else {
+      std::ranges::copy(ptr + 1, ptr + N1 + 1, ptr);
+      return N1;
+    }
+  });
+
+  return out;
 }
 
 } // namespace p67
@@ -300,15 +454,12 @@ main()
 
   p67::sanityCheck(rng);
 
-
-
   ankerl::nanobench::Bench b;
 
   p67::runBernoulliTest(rng, "Short 50% strings", 1000, 10, 0.5);
   p67::runBernoulliTest(rng, "Mid 50% strings", 1000, 100, 0.5);
   p67::runBernoulliTest(rng, "Long 50% strings", 1000, 1000, 0.5);
   p67::runBernoulliTest(rng, "Very long 50% strings", 1000, 10000, 0.5);
-
 
   return 0;
 }
