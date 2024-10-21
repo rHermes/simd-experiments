@@ -48,9 +48,14 @@ function(addProg)
         target_compile_options(${arg_NAME} PRIVATE -Wno-overflow)
         # I don't know what this error is, so I'm disabling it for now.
         target_compile_options(${arg_NAME} PRIVATE -Wno-ignored-attributes)
+
+        # target_compile_options(${arg_NAME} PRIVATE -fsanitize=address,undefined)
+        # target_link_options(${arg_NAME} PRIVATE -fsanitize=address,undefined)
+
     endif()
 endfunction()
 
 addProg(NAME "leetcode-921" NANOBENCH)
 addProg(NAME "leetcode-2696")
 addProg(NAME "leetcode-2938" NANOBENCH)
+addProg(NAME "leetcode-67" NANOBENCH)

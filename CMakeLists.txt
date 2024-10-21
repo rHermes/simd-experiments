@@ -47,6 +47,10 @@ if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     # add_compile_options("-fprofile-instr-generate" "-fcoverage-mapping")
     # add_link_options("-fprofile-instr-generate" "-fcoverage-mapping")
 
+    # add_compile_options(-fsanitize=address,undefined)
+    # add_link_options(-fsanitize=address,undefined)
+
+
     include(CTest)
 endif ()
 
