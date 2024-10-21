@@ -3,6 +3,7 @@ set(CORE_HEADER_LIST
         "${rimd_SOURCE_DIR}/include/rimd/core.hpp"
         "${rimd_SOURCE_DIR}/include/rimd/utils.hpp"
         "${rimd_SOURCE_DIR}/include/rimd/details/sse.hpp"
+        "${rimd_SOURCE_DIR}/include/rimd/details/misc.hpp"
 
 )
 

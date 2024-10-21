@@ -54,7 +54,7 @@ leetcode_2696_test(std::span<char> buf)
   // ok, there are a couple of ways we can do this, but I think the best
   // would be to do 4 comparisons. We could also just search 4 times for
   // a, b, c and D and combine those, but it would be equally many searches, for not much gain.
-  const auto ALL_ONES = _mm_set1_epi8(-1);
+  const auto ALL_ONES = rimd::Uint8x16(0xFF);
 
   // Ok, time to try to be smart here. What we will be doing, is that we will always operate on 4 bytes at a time.
   // This is not really
@@ -72,8 +72,8 @@ leetcode_2696_test(std::span<char> buf)
 
     int i;
     for (i = 0; i < outLen - 16; i += 16) {
-      const auto input = _mm_loadu_si128(reinterpret_cast<const __m128i*>(buf.data() + i));
-      const auto shiftedInput = _mm_bslli_si128(input, 1);
+      const auto input = rimd::Uint8x16::LoadUnaligned(buf.data() + i);
+      const auto shiftedInput = input.shiftLanesLeft<1>();
 
 #ifdef VERBOSE
       /* std::cout << "Input:  [" << std::string_view(buf.data() + i, 16) << "]\n"; */
