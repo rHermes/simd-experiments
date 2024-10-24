@@ -12,6 +12,10 @@
 
 #include <immintrin.h>
 
+#if (_MSC_VER >= 1800)
+#include <intrin.h>
+#endif
+
 #include <nanobench.h>
 
 namespace p67 {
@@ -256,8 +260,6 @@ solveSIMD_SSE4_v1(std::string_view input1, std::string_view input2)
       revChars.writeUnaligned(writePtr);
       // Now we just have to write thems
     }
-
-    // std::print("WTF: {}\n", std::string_view{writePtr, ptr+N1+1});
 
     while (input2.data() < readPtr2) {
       const bool b1 = *--readPtr1 == '1';

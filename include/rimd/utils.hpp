@@ -118,40 +118,40 @@ shiftLanes(T xs)
 namespace details {
 template<std::size_t Bits,
          typename T,
-         auto& F1,
-         auto& F2,
-         auto& F3,
-         auto& F4,
-         auto& F5,
-         auto& F6,
-         auto& F7,
-         auto& F8,
+         typename F1,
+         typename F2,
+         typename F3,
+         typename F4,
+         typename F5,
+         typename F6,
+         typename F7,
+         typename F8,
          typename... Args>
 FORCE_INLINE auto
-functionSelector(Args... args)
+functionSelector(F1&& f1, F2&& f2, F3&& f3, F4&& f4, F5&& f5, F6&& f6, F7&& f7, F8&& f8, Args... args)
 {
   if constexpr (std::same_as<T, __m128i>) {
     if constexpr (Bits == 8) {
-      return F1(args...);
+      return f1(args...);
     } else if constexpr (Bits == 16) {
-      return F2(args...);
+      return f2(args...);
     } else if constexpr (Bits == 32) {
-      return F3(args...);
+      return f3(args...);
     } else if constexpr (Bits == 64) {
-      return F4(args...);
+      return f4(args...);
     } else {
       static_assert(Bits == 8, "Bits must be 8, 16, 32 or 64");
       std::unreachable();
     }
   } else if constexpr (std::same_as<T, __m256i>) {
     if constexpr (Bits == 8) {
-      return F5(args...);
+      return f5(args...);
     } else if constexpr (Bits == 16) {
-      return F6(args...);
+      return f6(args...);
     } else if constexpr (Bits == 32) {
-      return F7(args...);
+      return f7(args...);
     } else if constexpr (Bits == 64) {
-      return F8(args...);
+      return f8(args...);
     } else {
       static_assert(Bits == 8, "Bits must be 8, 16, 32 or 64");
       std::unreachable();
@@ -166,48 +166,58 @@ template<std::size_t Bits, typename T>
 FORCE_INLINE T
 addElements(T a, T b)
 {
-  return functionSelector<Bits,
-                          T,
-                          _mm_add_epi8,
-                          _mm_add_epi16,
-                          _mm_add_epi32,
-                          _mm_add_epi64,
-                          _mm256_add_epi8,
-                          _mm256_add_epi16,
-                          _mm256_add_epi32,
-                          _mm256_add_epi64>(a, b);
+  constexpr auto simdExpr1 = [](const auto a, const auto b) { return _mm_add_epi8(a, b); };
+  constexpr auto simdExpr2 = [](const auto a, const auto b) { return _mm_add_epi16(a, b); };
+  constexpr auto simdExpr3 = [](const auto a, const auto b) { return _mm_add_epi32(a, b); };
+  constexpr auto simdExpr4 = [](const auto a, const auto b) { return _mm_add_epi64(a, b); };
+
+  constexpr auto simdExpr5 = [](const auto a, const auto b) { return _mm256_add_epi8(a, b); };
+  constexpr auto simdExpr6 = [](const auto a, const auto b) { return _mm256_add_epi16(a, b); };
+  constexpr auto simdExpr7 = [](const auto a, const auto b) { return _mm256_add_epi32(a, b); };
+  constexpr auto simdExpr8 = [](const auto a, const auto b) { return _mm256_add_epi64(a, b); };
+  return functionSelector<Bits, T>(
+                          simdExpr1,
+                          simdExpr2,
+                          simdExpr3,
+                          simdExpr4,
+                          simdExpr5,
+                          simdExpr6,
+                          simdExpr7,
+                          simdExpr8, a, b);
 }
 
 template<std::size_t Bits, typename T>
 FORCE_INLINE T
 signedMinElements(T a, T b)
 {
-  return functionSelector<Bits,
-                          T,
-                          _mm_min_epi8,
-                          _mm_min_epi16,
-                          _mm_min_epi32,
-                          _mm_min_epi64,
-                          _mm256_min_epi8,
-                          _mm256_min_epi16,
-                          _mm256_min_epi32,
-                          _mm256_min_epi64>(a, b);
+  constexpr auto simdExpr1 = [](const auto a, const auto b) { return _mm_min_epi8(a, b); };
+  constexpr auto simdExpr2 = [](const auto a, const auto b) { return _mm_min_epi16(a, b); };
+  constexpr auto simdExpr3 = [](const auto a, const auto b) { return _mm_min_epi32(a, b); };
+  constexpr auto simdExpr4 = [](const auto a, const auto b) { return _mm_min_epi64(a, b); };
+
+  constexpr auto simdExpr5 = [](const auto a, const auto b) { return _mm256_min_epi8(a, b); };
+  constexpr auto simdExpr6 = [](const auto a, const auto b) { return _mm256_min_epi16(a, b); };
+  constexpr auto simdExpr7 = [](const auto a, const auto b) { return _mm256_min_epi32(a, b); };
+  constexpr auto simdExpr8 = [](const auto a, const auto b) { return _mm256_min_epi64(a, b); };
+  return functionSelector<Bits, T>(
+    simdExpr1, simdExpr2, simdExpr3, simdExpr4, simdExpr5, simdExpr6, simdExpr7, simdExpr8, a, b);
 }
 
 template<std::size_t Bits, typename T>
 FORCE_INLINE T
 unsignedMinElements(T a, T b)
 {
-  return functionSelector<Bits,
-                          T,
-                          _mm_min_epu8,
-                          _mm_min_epu16,
-                          _mm_min_epu32,
-                          _mm_min_epu64,
-                          _mm256_min_epu8,
-                          _mm256_min_epu16,
-                          _mm256_min_epu32,
-                          _mm256_min_epu64>(a, b);
+  constexpr auto simdExpr1 = [](const auto a, const auto b) { return _mm_min_epu8(a, b); };
+  constexpr auto simdExpr2 = [](const auto a, const auto b) { return _mm_min_epu16(a, b); };
+  constexpr auto simdExpr3 = [](const auto a, const auto b) { return _mm_min_epu32(a, b); };
+  constexpr auto simdExpr4 = [](const auto a, const auto b) { return _mm_min_epu64(a, b); };
+
+  constexpr auto simdExpr5 = [](const auto a, const auto b) { return _mm256_min_epu8(a, b); };
+  constexpr auto simdExpr6 = [](const auto a, const auto b) { return _mm256_min_epu16(a, b); };
+  constexpr auto simdExpr7 = [](const auto a, const auto b) { return _mm256_min_epu32(a, b); };
+  constexpr auto simdExpr8 = [](const auto a, const auto b) { return _mm256_min_epu64(a, b); };
+  return functionSelector<Bits, T>(
+    simdExpr1, simdExpr2, simdExpr3, simdExpr4, simdExpr5, simdExpr6, simdExpr7, simdExpr8, a, b);
 }
 
 /*

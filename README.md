@@ -77,7 +77,7 @@ Speedup:
     - SSE4: 20x
     - AVX2: 30x
 
-This is a partial solution to [Leetcode 2938](https://leetcode.com/problems/separate-black-and-white-balls/).
+This is a solution to [Leetcode 2938](https://leetcode.com/problems/separate-black-and-white-balls/).
 The task description is:
 
 ### Description
@@ -111,12 +111,49 @@ sort of XOR and it just felt bad.
 
 This was really nice :)
 
-### Takeaways
 
 ## `leetcode-67`
 
+Speedup here is weird. On my laptop I have:
+
+- SSE4 pdep: 23x
+- AVX2 pdep: 24x
+- AVX2 pure: 32x
+
+For my AMD machine with `znver2`, the `pdep` is super slow, so it was just like a 4x speedup.
+
+But on a modern i9 in the office, I'm actually only getting: 
+
+- SSE4 pdep: 5x
+- AVX2 pdep: 5x
+- AVX2 pure: 7x
+
+When compiling with clang for window, but with pure `msvc` I'm getting:
+
+- SSE4 pdep: 35x
+- AVX2 pdep: 34x
+- AVX2 pure: 40x
+
+
+This is not because anything got slower, in fact the i9 performs the best out of all of them, but it's because
+the scalar version became about 10 times faster for some reason, when using clang.
+
+
+This is a solution to [Leetcode 67](https://leetcode.com/problems/add-binary/).
+
+
+### Description
+
+Given two binary strings `a` and `b`, return their *sum as a binary string*.
+
 
 ### Solution notes
+
+Very cool here that I ended up implementing two different tricks here, one for my intel laptop, which does have `pdep` and `pext`
+and another using pure AVX2 tricks, to expand out again. The real win here was to learn about how to make an inverse of
+`movemask`.
+
+I experimented with maybe doing the adding in simd also, but the latency of doing a carry add just doesn't work out.
 
 I used z3 to find the 79, trick, though it should have been obvious when I look back at it. The code I used was:
 
