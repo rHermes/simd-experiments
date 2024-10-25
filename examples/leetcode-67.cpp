@@ -116,7 +116,7 @@ sanityCheck(Rng&& rng)
 {
   // const auto testSet = generateBernoulliTestset(rng, 100, 100, 0.5);
   // const auto testSet = generateBernoulliTestset(rng, 100, 100, 0.3);
-  const auto testSet = generateBernoulliTestset(rng, 100, 25, 0.3);
+  const auto testSet = generateBernoulliTestset(rng, 100, 35, 0.5);
   // const auto testSet = generateBernoulliTestset(rng, 100, 65, 0.5);
   // const auto testSet = generateBernoulliTestset(rng, 100, 32, 0.5);
   // const auto testSet = generateBernoulliTestset(rng, 100, 14, 0.5);
@@ -197,7 +197,7 @@ solveScalar(std::string_view inputString1, std::string_view inputString2)
     }
   });
 
-  return out;
+  return out + "ø";
 }
 
 std::string
@@ -600,13 +600,14 @@ main()
 
   p67::sanityCheck(rng);
 
-
+  /*
   ankerl::nanobench::Bench b;
 
   p67::runBernoulliTest(rng, "Short 50% strings", 1000, 10, 0.5);
   p67::runBernoulliTest(rng, "Mid 50% strings", 1000, 100, 0.5);
   p67::runBernoulliTest(rng, "Long 50% strings", 1000, 1000, 0.5);
   p67::runBernoulliTest(rng, "Very long 50% strings", 1000, 10000, 0.5);
+  */
 
   return 0;
 }
