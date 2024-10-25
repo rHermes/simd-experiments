@@ -59,6 +59,30 @@ def createAVX2(names: list[tuple[str,int]], offset=None):
 
 LEFT_PADDING = 40
 
+
+# Returns the group and how much to add to basePadding
+# It's for binary operators, meaning they take two options.
+def binaryAvxOperator(x, y, title, a, b, res, aName, bName, resName):
+    opG = dw.Group(transform="translate({}, {})".format(x, y))
+    
+    opG.append(dw.Text(title, INS_TEXT_SIZE, LEFT_PADDING + WHOLE_WIDTH*0.5, -5, dominant_baseline="bottom", text_anchor="middle", font_family="monospace"))
+
+    opG.append(createAVX2(a, (LEFT_PADDING, 0)))
+    opG.append(dw.Text(aName, INS_TEXT_SIZE, LEFT_PADDING-5, BLOCK_WIDTH*0.5, text_anchor="end", dominant_baseline="middle", font_family="monospace"))
+
+    opG.append(createAVX2(b, (LEFT_PADDING, BLOCK_WIDTH*1.2)))
+    opG.append(dw.Text(bName, INS_TEXT_SIZE, LEFT_PADDING-5,  BLOCK_WIDTH*1.2 + BLOCK_WIDTH*0.5, text_anchor="end", dominant_baseline="middle", font_family="monospace"))
+
+    opG.append(dw.Text("↓", INS_TEXT_SIZE*2, LEFT_PADDING + WHOLE_WIDTH*0.5, BLOCK_WIDTH*2.2, dominant_baseline="hanging", text_anchor="middle", font_family="monospace"))
+
+    
+    opG.append(dw.Text(resName, INS_TEXT_SIZE, LEFT_PADDING-5,  BLOCK_WIDTH*3 + BLOCK_WIDTH*0.5, text_anchor="end", dominant_baseline="middle", font_family="monospace"))
+    opG.append(createAVX2(res, (LEFT_PADDING, BLOCK_WIDTH*3)))
+
+    return (opG, VERT_SPACE*1.5)
+    
+
+
 greenRange = list(Color("lightcyan").range_to(Color("steelblue"), 16))
 pinkRange = list(Color("mistyrose").range_to(Color("tomato"), 16))
 AA = [('A', i, c) for (i, c) in zip(range(0,32), greenRange + pinkRange)]
@@ -68,59 +92,23 @@ BB = [('B', i, "pink") for i in range(0,32)]
 reverseShuffle = [('{}'.format(i % 16), None, "khaki" if i < 16 else "sandybrown") for i in range(32)]
 reverseShuffle.reverse()
 
+CC =  AA[:16][::-1] + AA[16:][::-1]
+DD = CC[16:] + CC[:16]
+
+
 
 basePadding = 20
 
+shuffleOp, spaceAdded = binaryAvxOperator(0, basePadding, "c = _mm256_shuffle_epi8(a, b)", AA, reverseShuffle, CC, "a", "b", "c")
 
-# Initial values
+d.append(shuffleOp)
+basePadding += spaceAdded
 
-gShuf1 = dw.Group(transform="translate(0, {})".format(basePadding))
+flipOp, spaceAdded = binaryAvxOperator(0, basePadding, "d = _mm256_permute2x128_si256(c, c, 0x01)", CC, CC, DD, "c", "c", "d")
 
-gShuf1.append(dw.Text("c = _mm256_shuffle_epi8(a, b)", INS_TEXT_SIZE, LEFT_PADDING + WHOLE_WIDTH*0.5, -5, dominant_baseline="bottom", text_anchor="middle", font_family="monospace"))
+d.append(flipOp)
+basePadding += spaceAdded
 
-gShuf1.append(createAVX2(AA, (LEFT_PADDING, 0)))
-gShuf1.append(dw.Text("a", INS_TEXT_SIZE, LEFT_PADDING-5, BLOCK_WIDTH*0.5, text_anchor="end", dominant_baseline="middle", font_family="monospace"))
-
-gShuf1.append(createAVX2(reverseShuffle, (LEFT_PADDING, BLOCK_WIDTH*1.2)))
-gShuf1.append(dw.Text("b", INS_TEXT_SIZE, LEFT_PADDING-5,  BLOCK_WIDTH*1.2 + BLOCK_WIDTH*0.5, text_anchor="end", dominant_baseline="middle", font_family="monospace"))
-
-gShuf1.append(dw.Text("↓", INS_TEXT_SIZE*2, LEFT_PADDING + WHOLE_WIDTH*0.5, BLOCK_WIDTH*2.2, dominant_baseline="hanging", text_anchor="middle", font_family="monospace"))
-
-AA = AA[:16][::-1] + AA[16:][::-1]
-
-gShuf1.append(dw.Text("c", INS_TEXT_SIZE, LEFT_PADDING-5,  BLOCK_WIDTH*3 + BLOCK_WIDTH*0.5, text_anchor="end", dominant_baseline="middle", font_family="monospace"))
-gShuf1.append(createAVX2(AA, (LEFT_PADDING, BLOCK_WIDTH*3)))
-
-
-
-
-d.append(gShuf1)
-
-basePadding += VERT_SPACE*1.5
-
-
-gShuf2 = dw.Group(transform="translate(0, {})".format(basePadding))
-
-# Now we flip the lanes
-gShuf2.append(dw.Text("d = _mm256_permute2x128_si256(c, c, 0x01)", INS_TEXT_SIZE, LEFT_PADDING + WHOLE_WIDTH*0.5, -5, dominant_baseline="bottom", text_anchor="middle", font_family="monospace"))
-
-
-gShuf2.append(createAVX2(AA, (LEFT_PADDING, 0)))
-gShuf2.append(dw.Text("c", INS_TEXT_SIZE, LEFT_PADDING-5, BLOCK_WIDTH*0.5, text_anchor="end", dominant_baseline="middle", font_family="monospace"))
-
-gShuf2.append(createAVX2(AA, (LEFT_PADDING, BLOCK_WIDTH*1.2)))
-gShuf2.append(dw.Text("c", INS_TEXT_SIZE, LEFT_PADDING-5, BLOCK_WIDTH*1.2 + BLOCK_WIDTH*0.5, text_anchor="end", dominant_baseline="middle", font_family="monospace"))
-
-gShuf2.append(dw.Text("↓", INS_TEXT_SIZE*2, LEFT_PADDING + WHOLE_WIDTH*0.5, BLOCK_WIDTH*2.2, dominant_baseline="hanging", text_anchor="middle", font_family="monospace"))
-
-AA = AA[16:] + AA[:16]
-
-gShuf2.append(dw.Text("d", INS_TEXT_SIZE, LEFT_PADDING-5,  BLOCK_WIDTH*3 + BLOCK_WIDTH*0.5, text_anchor="end", dominant_baseline="middle", font_family="monospace"))
-gShuf2.append(createAVX2(AA, (LEFT_PADDING, BLOCK_WIDTH*3)))
-
-
-d.append(gShuf2)
-basePadding += VERT_SPACE*1.5
 
 
 d.save_svg("wow.svg")
