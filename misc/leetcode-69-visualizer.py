@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import typing
 
 
-WIDTH = 1000
+WIDTH = 1700
 HEIGHT = 700
 
 INS_TEXT_SIZE = 10
@@ -74,7 +74,7 @@ def createAVX2(cells: list[SimdCell], offset=None):
 
     return group
 
-LEFT_PADDING = 150
+LEFT_PADDING = 130
 
 
 # Returns the group and how much to add to basePadding
@@ -173,11 +173,11 @@ def symbolic_reverse_stuff():
     return G
 
 
-def visualizeAVX2_v2(s1, s2):
+def visualizeAVX2_v2_step_1(s1: str, suf: str, blueStart: Color, blueEnd: Color, redStart: Color, redEnd: Color) -> dw.Group:
     G = dw.Group()
     
-    blueRange = list(Color("lightcyan").range_to(Color("steelblue"), 16))
-    redRange = list(Color("mistyrose").range_to(Color("tomato"), 16))
+    blueRange = list(blueStart.range_to(blueEnd, 16))
+    redRange = list(redStart.range_to(redEnd, 16))
     AA = [SimdCell("'{}'".format(s1[i]), None, c, 8) for (i, c) in zip(range(0,32), blueRange + redRange)]
     
     reverseShuffle = [SimdCell('{}'.format(i % 16), None, Color("khaki" if i < 16 else "sandybrown")) for i in range(32)]
@@ -188,11 +188,11 @@ def visualizeAVX2_v2(s1, s2):
     CC =  AA[:16][::-1] + AA[16:][::-1]
     
     blueGrad = dw.LinearGradient("0%", "50%", "100%", "50%", gradientUnits="objectBoundingBox")
-    blueGrad.add_stop("0%", CC[15].fill.get_hex(), )
+    blueGrad.add_stop("0%", CC[15].fill.get_hex())
     blueGrad.add_stop("100%", CC[0].fill.get_hex())
     
     redGrad = dw.LinearGradient("0%", "50%", "100%", "50%", gradientUnits="objectBoundingBox")
-    redGrad.add_stop("0%", CC[31].fill.get_hex(), )
+    redGrad.add_stop("0%", CC[31].fill.get_hex())
     redGrad.add_stop("100%", CC[16].fill.get_hex())
     
     goodThing1 = 0
@@ -213,20 +213,20 @@ def visualizeAVX2_v2(s1, s2):
     
     basePadding = 20
     
-    loadS1Op, spaceAdded = noneAvxOperator(0, basePadding, "chunk1 =_mm256_loadu_si256(s1Ptr)", AA, "chunk1")
+    loadS1Op, spaceAdded = noneAvxOperator(0, basePadding, "chunk{0} = _mm256_loadu_si256(s{0}Ptr)".format(suf), AA, "chunk{}".format(suf))
     
     G.append(loadS1Op)
     basePadding += spaceAdded
     
-    shuffleOp, spaceAdded = binaryAvxOperator(0, basePadding, "revChunk1 = _mm256_shuffle_epi8(chunk1, REVERSE_SHUFFLE_MASK)", AA, reverseShuffle, CC, "chunk1",  "REVERSE_SHUFFLE_MASK", "revChunk1")
+    shuffleOp, spaceAdded = binaryAvxOperator(0, basePadding, "revChunk{0} = _mm256_shuffle_epi8(chunk{0}, REVERSE_SHUFFLE_MASK)".format(suf), AA, reverseShuffle, CC, "chunk" + suf,  "REVERSE_SHUFFLE_MASK", "revChunk" + suf)
     G.append(shuffleOp)
     basePadding += spaceAdded
     
-    flipOp, spaceAdded = binaryAvxOperator(0, basePadding, "revChunk1  =_mm256_permute2x128_si256(revChunk1, revChunk1, 0x01)", GG, GG, [GG[1], GG[0]], "revChunk1",  "revChunk1", "realRevChunk1")
+    flipOp, spaceAdded = binaryAvxOperator(0, basePadding, "revChunk{0} = _mm256_permute2x128_si256(revChunk{0}, revChunk{0}, 0x01)".format(suf), GG, GG, [GG[1], GG[0]], "revChunk" + suf,  "revChunk" + suf, "realRevChunk" + suf)
     G.append(flipOp)
     basePadding += spaceAdded
     
-    addOp, spaceAdded = binaryAvxOperator(0, basePadding, "values1 = _mm256_add_epi8(realRevChunk1, ADD_MASK)", DD, addVector, value1, "realRevChunk1", "ADD_MASK", "values1")
+    addOp, spaceAdded = binaryAvxOperator(0, basePadding, "values{0} = _mm256_add_epi8(realRevChunk{0}, ADD_MASK)".format(suf), DD, addVector, value1, "realRevChunk" + suf, "ADD_MASK", "values" + suf)
     G.append(addOp)
     basePadding += spaceAdded
 
@@ -234,10 +234,29 @@ def visualizeAVX2_v2(s1, s2):
     # Move mask
     MM1 = [SimdCell("{}".format(int(x.value)>>7), None, x.fill, 3) for x in value1]
     
-    moveMaskOp, spaceAdded = unaryAvxOperator(0, basePadding, "mm1 = _mm256_movemask_epi8(values1)", value1, MM1, "values1", "mm1")
+    moveMaskOp, spaceAdded = unaryAvxOperator(0, basePadding, "mm{0} = _mm256_movemask_epi8(values{0})".format(suf), value1, MM1, "values" + suf, "mm" + suf)
     G.append(moveMaskOp)
     basePadding += spaceAdded
     
+    
+    return G
+
+
+
+def visualizeAVX2_v2(s1, s2):
+    G = dw.Group()
+
+    leftGroup = dw.Group()
+    rightGroup = dw.Group(transform="translate(800)")
+
+    G.append(leftGroup)
+    G.append(rightGroup)
+
+    s1G = visualizeAVX2_v2_step_1(s1, "1", Color("lightcyan"), Color("steelblue"), Color("mistyrose"), Color("tomato"))
+    s2G = visualizeAVX2_v2_step_1(s2, "2", Color("PaleGreen"), Color("SeaGreen"), Color("lavender"), Color("orchid"))
+
+    leftGroup.append(s1G)
+    rightGroup.append(s2G)
     
     return G
 
