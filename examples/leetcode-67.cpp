@@ -197,7 +197,7 @@ solveScalar(std::string_view inputString1, std::string_view inputString2)
     }
   });
 
-  return out + "ø";
+  return out;
 }
 
 std::string
@@ -480,7 +480,8 @@ solveSIMD_AVX2_v2(std::string_view input1, std::string_view input2)
 
     // We compare them against either 127 or -1, so that the ones that are -1 get false and all else gets true.
     // This makes it so we can simply add with '1' and get the answer.
-    const auto cmpAgainst = _mm256_set1_epi64x(0x7FFFFFFFFFFFFFFF);
+    // const auto cmpAgainst = _mm256_set1_epi64x(0x7FFFFFFFFFFFFFFF);
+    const auto cmpAgainst = _mm256_set1_epi64x(0xFFFFFFFFFFFFFF00);
     unsigned char carry = 0;
 
     auto writePtr = ptr + N1 + 1;
@@ -517,7 +518,7 @@ solveSIMD_AVX2_v2(std::string_view input1, std::string_view input2)
       const auto res1 = _mm256_set1_epi32(res);
       const auto res2 = _mm256_shuffle_epi8(res1, byteExtractMask);
       const auto res3 = _mm256_or_si256(res2, bitCompleteMask);
-      const auto res4 = _mm256_cmpgt_epi8(cmpAgainst, res3);
+      const auto res4 = _mm256_cmpeq_epi8(res3, bitCompleteMask);
 
       // ok now we just gotta OR it with 0
       const auto charsOut = _mm256_add_epi8(res4, ASCII_ONE);
@@ -596,10 +597,24 @@ solveSIMD_AVX2_v2(std::string_view input1, std::string_view input2)
 int
 main()
 {
-  ankerl::nanobench::Rng rng(10);
+  std::random_device dev;
+  ankerl::nanobench::Rng rng(dev());
 
   p67::sanityCheck(rng);
+  /*
+  {
+    std::string s1 = "10100101010110011001001011000000";
+    std::string s2 = "11001000101100000000110101010100";
+    auto heyHey = p67::solveSIMD_AVX2_v2(s1, s2);
 
+    auto Ans = p67::solveScalar(s1, s2);
+    if (heyHey != Ans) {
+      std::print("They are not the same:\n");
+      std::print("ANS: {}\n", Ans);
+      std::print("CAL: {}\n", heyHey);
+    }
+  }
+  */+
   /*
   ankerl::nanobench::Bench b;
 

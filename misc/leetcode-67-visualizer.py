@@ -10,9 +10,17 @@ from colour import Color
 from dataclasses import dataclass
 import typing
 
+def blend(a: Color, b: Color) -> Color:
+    return list(a.range_to(b, 3))[1]
+
+def unsignedToSigned(n, byte_count): 
+  return int.from_bytes(n.to_bytes(byte_count, 'little', signed=False), 'little', signed=True)
+
+def signedToUnsigned(n, byte_count): 
+  return int.from_bytes(n.to_bytes(byte_count, 'little', signed=True), 'little', signed=False)
 
 WIDTH = 1700
-HEIGHT = 700
+HEIGHT = 1400
 
 INS_TEXT_SIZE = 10
 
@@ -111,7 +119,7 @@ def unaryAvxOperator(x, y, title, a, res, aName, resName):
     opG.append(dw.Text(resName, INS_TEXT_SIZE, LEFT_PADDING-5,  BLOCK_HEIGHT*2 + BLOCK_HEIGHT*0.5, text_anchor="end", dominant_baseline="middle", font_family="monospace"))
     opG.append(createAVX2(res, (LEFT_PADDING, BLOCK_HEIGHT*2)))
 
-    return (opG, VERT_SPACE*1)
+    return (opG, VERT_SPACE*1.2)
 
 
 def noneAvxOperator(x, y, title, res, resName):
@@ -173,7 +181,7 @@ def symbolic_reverse_stuff():
     return G
 
 
-def visualizeAVX2_v2_step_1(s1: str, suf: str, blueStart: Color, blueEnd: Color, redStart: Color, redEnd: Color) -> dw.Group:
+def visualizeAVX2_v2_step_1(s1: str, suf: str, blueStart: Color, blueEnd: Color, redStart: Color, redEnd: Color):
     G = dw.Group()
     
     blueRange = list(blueStart.range_to(blueEnd, 16))
@@ -239,8 +247,105 @@ def visualizeAVX2_v2_step_1(s1: str, suf: str, blueStart: Color, blueEnd: Color,
     basePadding += spaceAdded
     
     
-    return G
+    return G, MM1
 
+
+def visualizeAVX2_v2_step_2(mm1, mm2):
+    G = dw.Group()
+
+    mm1Value = int("".join([x.value for x in reversed(mm1)]), base=2)
+    mm2Value = int("".join([x.value for x in reversed(mm2)]), base=2)
+    mm3Value = mm1Value + mm2Value
+    mmCarryOut = mm3Value >> 32
+    mm3Value = mm3Value & 0xFFFFFFFF
+
+    mm3Str = "{:032b}".format(mm3Value)
+    mm3Str = mm3Str[::-1]
+
+    mm3 = [SimdCell(mm3Str[i], None, blend(mm1[i].fill, mm2[i].fill), 3) for i in range(32)]
+
+    basePadding = 20
+    addCarryOp, spaceAdded = binaryAvxOperator(0, basePadding, "carry = _addcarry_u32(carry, mm1, mm2, &mm3)", mm1, mm2, mm3, "mm1", "mm2", "mm3")
+    basePadding += spaceAdded
+    G.append(addCarryOp)
+
+    return G, mm3
+
+def visualizeAVX2_v2_step_3(mm3):
+    G = dw.Group()
+
+    mm3Value = int("".join([x.value for x in mm3[::-1]]), base=2)
+    mm3_32bit_val = "0x{:08X}".format(mm3Value)
+        
+    cs = list(Color("LemonChiffon").range_to(Color("DarkKhaki"), 4))
+    extractShuffle = [SimdCell('{}'.format(i // 64), None, cs[i//64], 8) for i in range(0, 256, 8)]
+    extractShuffle.reverse()
+
+    cs2 = list(Color("LemonChiffon").range_to(Color("DarkKhaki"), 8))
+    # completeMask = [SimdCell("{: 3d}".format(0xFF ^ (1<<i)), None, cs2[i], 8) for i in range(8)]*4
+    # completeMask = [SimdCell("{:02X}".format(0xFF ^ (1<<(7-i))), None, cs2[i], 8) for i in range(8)]*4
+    completeMask = [SimdCell("{:02X}".format(0xFF ^ (1<<i)), None, cs2[i], 8) for i in range(8)]*4
+    completeMask.reverse()
+
+    redGrad = dw.LinearGradient("0%", "50%", "100%", "50%", gradientUnits="objectBoundingBox")
+    redGrad.add_stop("0%", mm3[31].fill.get_hex())
+    # redGrad.add_stop("49%", mm3[16].fill.get_hex())
+    redGrad.add_stop("50%", mm3[16].fill.get_hex())
+    redGrad.add_stop("50%", mm3[15].fill.get_hex())
+    redGrad.add_stop("100%", mm3[0].fill.get_hex())
+
+    res1 = [SimdCell(mm3_32bit_val, None, redGrad, 32) for _ in range(8)]
+
+    basePadding = 20
+    setEpi32Op, spaceAdded = unaryAvxOperator(0, basePadding, "res1 = _mm256_set1_epi32(mm3)", mm3, res1, "mm3", "res1")
+    basePadding += spaceAdded
+    G.append(setEpi32Op)
+        
+    # ok we are need to take the upper bytes on each
+    res2 = []
+    for i in range(32):
+        j = i // 8
+        startText = 2 + (3-j)*2
+        endText = startText + 2
+        val = mm3_32bit_val[startText:endText]
+        upperBit = j*8 + 7
+        lowerBit = j*8
+
+        cellGrad = dw.LinearGradient("0%", "50%", "100%", "50%", gradientUnits="objectBoundingBox")
+        cellGrad.add_stop("0%", mm3[upperBit].fill.get_hex())
+        cellGrad.add_stop("100%", mm3[lowerBit].fill.get_hex())
+
+        res2.append(SimdCell(val, None, cellGrad, 8))
+
+    res2.reverse()
+
+
+
+    resShuffleOp, spaceAdded = binaryAvxOperator(0, basePadding, "res2 = _mm256_shuffle_epi8(res1, byteExtractMask)", res1, extractShuffle, res2, "res1", "byteExtractMask", "res2")
+    basePadding += spaceAdded
+    G.append(resShuffleOp)
+    
+    res3 = [SimdCell("{:02X}".format(int(res2[i].value, base=16) | int(completeMask[i].value, base=16)), None, mm3[31-i].fill, 8) for i in range(32)]
+    
+    resCompleteOp, spaceAdded = binaryAvxOperator(0, basePadding, "res3 = _mm256_or_si256(res2, bitCompleteMask)", res2, completeMask, res3, "res2", "bitCompleteMask", "res3")
+    basePadding += spaceAdded
+    G.append(resCompleteOp)
+
+    res4 = [SimdCell("FF" if completeMask[i].value == res3[i].value else "0", None, res3[i].fill, 8) for i in range(32)]
+    
+    reCmpOp, spaceAdded = binaryAvxOperator(0, basePadding, "res4 = _mm256_cmpeq_epi8(res3, bitCompleteMask)", res3, completeMask, res4, "res3", "bitCompleteMask", "res4")
+    basePadding += spaceAdded
+    G.append(reCmpOp)
+
+    charsOut = [SimdCell("'{}'".format(chr((int(res4[i].value, base=16) + ord('1')) % 256)), None, res4[i].fill, 8) for i in range(32)]
+    AsciiOne = [SimdCell("'1'", None, Color("khaki" if i < 16 else "sandybrown"), 8) for i in range(32)]
+    
+    reAddOp, spaceAdded = binaryAvxOperator(0, basePadding, "charsOut = _mm256_add_epi8(res4, ASCII_ONE)", res4, AsciiOne, charsOut, "res4", "ASCII_ONE", "charsOut")
+    basePadding += spaceAdded
+    G.append(reAddOp)
+
+
+    return G
 
 
 def visualizeAVX2_v2(s1, s2):
@@ -252,11 +357,31 @@ def visualizeAVX2_v2(s1, s2):
     G.append(leftGroup)
     G.append(rightGroup)
 
-    s1G = visualizeAVX2_v2_step_1(s1, "1", Color("lightcyan"), Color("steelblue"), Color("mistyrose"), Color("tomato"))
-    s2G = visualizeAVX2_v2_step_1(s2, "2", Color("PaleGreen"), Color("SeaGreen"), Color("lavender"), Color("orchid"))
+    redStart1 = Color("mistyrose")
+    redEnd1 = Color("tomato")
+    blueStart1 = Color("lightcyan")
+    blueEnd1 = Color("steelblue")
+
+    redStart2 = Color("palegreen")
+    redEnd2 = Color("seagreen")
+    blueStart2 = Color("lavender")
+    blueEnd2 = Color("orchid")
+
+    s1G, mm1 = visualizeAVX2_v2_step_1(s1, "1", blueStart1, blueEnd1, redStart1, redEnd1)
+    s2G, mm2 = visualizeAVX2_v2_step_1(s2, "2", blueStart2, blueEnd2, redStart2, redEnd2)
+    # s2G = visualizeAVX2_v2_step_1(s2, "2", Color("PaleGreen"), Color("SeaGreen"), Color("lavender"), Color("orchid"))
 
     leftGroup.append(s1G)
     rightGroup.append(s2G)
+
+    stepTwoG, mm3 = visualizeAVX2_v2_step_2(mm1, mm2)
+    stepTwoG.args["transform"] = "translate(0, 600)"
+    leftGroup.append(stepTwoG)
+
+    stepThreeG = visualizeAVX2_v2_step_3(mm3)
+    stepThreeG.args["transform"] = "translate(0, 800)"
+    leftGroup.append(stepThreeG)
+
     
     return G
 
@@ -265,8 +390,11 @@ def visualizeAVX2_v2(s1, s2):
 d = dw.Drawing(WIDTH, HEIGHT)
 d.append(dw.Rectangle(0, 0, WIDTH, HEIGHT, fill="white", stroke="red"))
 
-d.append(visualizeAVX2_v2('101001010101100110010010110000000', '110010001011000000001101010101000'))
+# d.append(visualizeAVX2_v2('101001010101100110010010110000000', '110010001011000000001101010101000'))
+d.append(visualizeAVX2_v2('10100101010110011001001011000000', '11001000101100000000110101010100'))
 
+# print(d.as_svg())
 
 # White background.
-d.save_svg("wow.svg")
+# d.save_svg("wow.svg")
+d.save_html("wow.html")
