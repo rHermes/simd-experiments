@@ -20,7 +20,7 @@ def signedToUnsigned(n, byte_count):
   return int.from_bytes(n.to_bytes(byte_count, 'little', signed=True), 'little', signed=False)
 
 WIDTH = 1700
-HEIGHT = 1400
+HEIGHT = 2400
 
 INS_TEXT_SIZE = 10
 
@@ -133,7 +133,19 @@ def noneAvxOperator(x, y, title, res, resName):
     opG.append(createAVX2(res, (LEFT_PADDING, BLOCK_HEIGHT*1)))
 
     return (opG, VERT_SPACE*0.9)
+
+def showAvx(x, y, res, resName):
+    opG = dw.Group(transform="translate({}, {})".format(x, y))
     
+    # opG.append(dw.Text(title, INS_TEXT_SIZE, LEFT_PADDING + WHOLE_WIDTH*0.5, -5, dominant_baseline="bottom", text_anchor="middle", font_family="monospace"))
+
+    # opG.append(dw.Text("↓", INS_TEXT_SIZE*2, LEFT_PADDING + WHOLE_WIDTH*0.5, BLOCK_HEIGHT*0.1, dominant_baseline="hanging", text_anchor="middle", font_family="monospace"))
+
+    opG.append(dw.Text(resName, INS_TEXT_SIZE, LEFT_PADDING-5,  BLOCK_HEIGHT*0.5, text_anchor="end", dominant_baseline="middle", font_family="monospace"))
+    opG.append(createAVX2(res, (LEFT_PADDING, BLOCK_HEIGHT*0)))
+
+    return (opG, VERT_SPACE*0.5)
+
     
 def visualizeRunningSum(vecIn: list[SimdCell], inName: str, outName: str, rev: bool):
     G = dw.Group()
@@ -184,11 +196,25 @@ def visualizeRunningSum(vecIn: list[SimdCell], inName: str, outName: str, rev: b
     vecOut = addIt(temp3Vec, "temp3", shift8Vec, "shift8", outName)
 
     return G, basePadding, vecOut
+
+def calculateRunningSum(vecIn: list[SimdCell], inName: str, outName: str, rev: bool):
+    G = dw.Group()
     
+    outVec = [SimdCell(x.value, x.subscript, x.fill, x.width) for x in vecIn]
+    
+    if rev:
+        for i in range(1,16):
+            j = 15-i
+            outVec[j].value = str(int(outVec[j].value) + int(outVec[j+1].value))
+    
+    opG, spaceAdded = unaryAvxOperator(0, 0, "{} = rimd::calcRunningSum<8, {}>({})".format(outName, rev, inName), vecIn, outVec, inName, outName)
+    G.append(opG)
+    
+    return opG, spaceAdded, outVec
 
 
 
-def visualizeSSE_v2_step_1(s1: str):
+def visualizeSSE_v2_step_1(s1: str, updateVec: list[SimdCell], lagVec: list[SimdCell]):
     G = dw.Group()
     
     redStart = Color("mistyrose")
@@ -196,6 +222,8 @@ def visualizeSSE_v2_step_1(s1: str):
     
     blueStart = Color("lightcyan")
     blueEnd = Color("steelblue")
+    
+    cs = list(Color("LemonChiffon").range_to(Color("DarkKhaki"), 16))
     
     blueRange = list(blueStart.range_to(blueEnd, 16))
     redRange = list(redStart.range_to(redEnd, 16))
@@ -205,178 +233,158 @@ def visualizeSSE_v2_step_1(s1: str):
     reverseShuffle = [SimdCell('{}'.format(i % 16), None, Color("khaki")) for i in range(16)]
     reverseShuffle.reverse()
     
-    addVector = [SimdCell("79", None, Color("khaki" if i < 16 else "sandybrown")) for i in range(32)]
+    #  addVector = [SimdCell("79", None, Color("khaki" if i < 16 else "sandybrown")) for i in range(32)]
     
     oneVector = [SimdCell("'1'", None, Color("khaki"), 8) for i in range(16)]
+    zeroVector = [SimdCell("0", None, Color("khaki"), 8) for i in range(16)]
+
     
     zeroSpotsVec = [SimdCell("-1" if AA[i].value == "'0'" else "0", None, AA[i].fill, 8) for i in range(16)]
     
-    CC =  AA[:16][::-1] + AA[16:][::-1]
     
-    blueGrad = dw.LinearGradient("0%", "50%", "100%", "50%", gradientUnits="objectBoundingBox")
-    blueGrad.add_stop("0%", CC[15].fill.get_hex())
-    blueGrad.add_stop("100%", CC[0].fill.get_hex())
+    positionVec = [SimdCell(str(i+1), None, cs[i], 8) for i in range(16)]
     
-    # redGrad = dw.LinearGradient("0%", "50%", "100%", "50%", gradientUnits="objectBoundingBox")
-    # redGrad.add_stop("0%", CC[31].fill.get_hex())
-    # redGrad.add_stop("100%", CC[16].fill.get_hex())
+    indexesVec = [SimdCell("0" if (zeroSpotsVec[i].value != "-1") else positionVec[i].value, None, zeroSpotsVec[i].fill, 8) for i in range(16)]
     
-    goodThing1 = 0
-    for x in reversed(CC[:16]):
-        goodThing1 <<= 8
-        goodThing1 += ord(x.value[1])
-    
-    goodThing2 = 0
-    for x in reversed(CC[16:]):
-        goodThing2 <<= 8
-        goodThing2 |= ord(x.value[1])
-    
-    
-    # GG = [SimdCell("0x{:016X}".format(goodThing1), None, blueGrad, 128), SimdCell("0x{:016X}".format(goodThing2), None, redGrad, 128)]
-
-    # DD = CC[16:] + CC[:16]
-    # value1 = [SimdCell("{}".format(79 + ord(x.value[1])), None, x.fill, 8) for x in DD]
     
     basePadding = 20
     
+    
+    # Show of the beggining
+    showUpdateOp, spaceAdded = showAvx(0, basePadding, updateVec, "update")
+    G.append(showUpdateOp)
+    basePadding += spaceAdded
+    
+    showLagOp, spaceAdded = showAvx(0, basePadding, lagVec, "lag")
+    G.append(showLagOp)
+    basePadding += spaceAdded
+    
+    basePadding += 20
+    
+    
+    
     loadS1Op, spaceAdded = noneAvxOperator(0, basePadding, "chunk = _mm_loadu_si128(reinterpret_cast<__m128i const*>(inputString.data() + i))", AA, "chunk")
-    basePadding += spaceAdded    
     G.append(loadS1Op)
+    basePadding += spaceAdded
     
     subOp1, spaceAdded = binaryAvxOperator(0, basePadding, "zeroSpots = _mm_sub_epi8(chunk, _mm_set1_epi8('1'))", AA, oneVector, zeroSpotsVec, "chunk", "_mm_set1_epi8('1')", "zeroSpots")
     G.append(subOp1)
     basePadding += spaceAdded
     
-    revPsaOp, spaceAdded, revPsaVec = visualizeRunningSum(zeroSpotsVec, "zeroSpots", "revPsa", True)
+    indexesOp, spaceAdded = binaryAvxOperator(0, basePadding, "indexes = _mm_and_si128(zeroSpots, POSITIONS)", zeroSpotsVec, positionVec, indexesVec, "zeroSpots", "POSITIONS", "indexes")
+    G.append(indexesOp)
+    basePadding += spaceAdded
+    
+    
+    # revPsaOp, spaceAdded, revPsaVec = visualizeRunningSum(zeroSpotsVec, "zeroSpots", "revPsa", True)
+    # revPsaOp.args["transform"] = "translate(0, {})".format(basePadding)
+    # G.append(revPsaOp)
+    # basePadding += spaceAdded
+    
+    revPsaOp, spaceAdded, revPsaVec = calculateRunningSum(indexesVec, "indexes", "revPsa", True)
     revPsaOp.args["transform"] = "translate(0, {})".format(basePadding)
     G.append(revPsaOp)
     basePadding += spaceAdded
     
-    
-    
-    # shuffleOp, spaceAdded = binaryAvxOperator(0, basePadding, "revChunk{0} = _mm256_shuffle_epi8(chunk{0}, REVERSE_SHUFFLE_MASK)".format(suf), AA, reverseShuffle, CC, "chunk" + suf,  "REVERSE_SHUFFLE_MASK", "revChunk" + suf)
-    # G.append(shuffleOp)
-    # basePadding += spaceAdded
-    
-    # flipOp, spaceAdded = binaryAvxOperator(0, basePadding, "revChunk{0} = _mm256_permute2x128_si256(revChunk{0}, revChunk{0}, 0x01)".format(suf), GG, GG, [GG[1], GG[0]], "revChunk" + suf,  "revChunk" + suf, "realRevChunk" + suf)
-    # G.append(flipOp)
-    # basePadding += spaceAdded
-    
-    # addOp, spaceAdded = binaryAvxOperator(0, basePadding, "values{0} = _mm256_add_epi8(realRevChunk{0}, ADD_MASK)".format(suf), DD, addVector, value1, "realRevChunk" + suf, "ADD_MASK", "values" + suf)
-    # G.append(addOp)
-    # basePadding += spaceAdded
-
-
-    # # Move mask
-    # MM1 = [SimdCell("{}".format(int(x.value)>>7), None, x.fill, 3) for x in value1]
-    
-    # moveMaskOp, spaceAdded = unaryAvxOperator(0, basePadding, "mm{0} = _mm256_movemask_epi8(values{0})".format(suf), value1, MM1, "values" + suf, "mm" + suf)
-    # G.append(moveMaskOp)
-    # basePadding += spaceAdded
-    
-    
-    return G
-
-
-def visualizeAVX2_v2_step_2(mm1, mm2):
-    G = dw.Group()
-    
-    #redStart1 = Color("mistyrose")
-    # redEnd1 = Color("tomato")
-    blueStart1 = Color("lightcyan")
-    blueEnd1 = Color("steelblue")
-    
-    mm1Value = int("".join([x.value for x in reversed(mm1)]), base=2)
-    mm2Value = int("".join([x.value for x in reversed(mm2)]), base=2)
-    mm3Value = mm1Value + mm2Value
-    mmCarryOut = mm3Value >> 32
-    mm3Value = mm3Value & 0xFFFFFFFF
-
-    mm3Str = "{:032b}".format(mm3Value)
-    mm3Str = mm3Str[::-1]
-
-    mm3 = [SimdCell(mm3Str[i], None, blend(mm1[i].fill, mm2[i].fill), 3) for i in range(32)]
-
-    basePadding = 20
-    addCarryOp, spaceAdded = binaryAvxOperator(0, basePadding, "carry = _addcarry_u32(carry, mm1, mm2, &mm3)", mm1, mm2, mm3, "mm1", "mm2", "mm3")
+    revNegZeroCountOp, spaceAdded, revNegZeroCountVec = calculateRunningSum(zeroSpotsVec, "zeroSpots", "revNegZeroCountVec", True)
+    revNegZeroCountOp.args["transform"] = "translate(0, {})".format(basePadding)
+    G.append(revNegZeroCountOp)
     basePadding += spaceAdded
-    G.append(addCarryOp)
-
-    return G, mm3
-
-def visualizeAVX2_v2_step_3(mm3):
-    G = dw.Group()
-
-    mm3Value = int("".join([x.value for x in mm3[::-1]]), base=2)
-    mm3_32bit_val = "0x{:08X}".format(mm3Value)
-        
-    cs = list(Color("LemonChiffon").range_to(Color("DarkKhaki"), 4))
-    extractShuffle = [SimdCell('{}'.format(i // 64), None, cs[i//64], 8) for i in range(0, 256, 8)]
-    extractShuffle.reverse()
-
-    cs2 = list(Color("LemonChiffon").range_to(Color("DarkKhaki"), 8))
-    completeMask = [SimdCell("{:02X}".format(0xFF ^ (1<<i)), None, cs2[i], 8) for i in range(8)]*4
-    completeMask.reverse()
-
-    redGrad = dw.LinearGradient("0%", "50%", "100%", "50%", gradientUnits="objectBoundingBox")
-    redGrad.add_stop("0%", mm3[31].fill.get_hex())
-    # redGrad.add_stop("49%", mm3[16].fill.get_hex())
-    redGrad.add_stop("50%", mm3[16].fill.get_hex())
-    redGrad.add_stop("50%", mm3[15].fill.get_hex())
-    redGrad.add_stop("100%", mm3[0].fill.get_hex())
-
-    res1 = [SimdCell(mm3_32bit_val, None, redGrad, 32) for _ in range(8)]
-
-    basePadding = 20
-    setEpi32Op, spaceAdded = unaryAvxOperator(0, basePadding, "res1 = _mm256_set1_epi32(mm3)", mm3, res1, "mm3", "res1")
-    basePadding += spaceAdded
-    G.append(setEpi32Op)
-        
-    # ok we are need to take the upper bytes on each
-    res2 = []
-    for i in range(32):
-        j = i // 8
-        startText = 2 + (3-j)*2
-        endText = startText + 2
-        val = mm3_32bit_val[startText:endText]
-        upperBit = j*8 + 7
-        lowerBit = j*8
-
-        cellGrad = dw.LinearGradient("0%", "50%", "100%", "50%", gradientUnits="objectBoundingBox")
-        cellGrad.add_stop("0%", mm3[upperBit].fill.get_hex())
-        cellGrad.add_stop("100%", mm3[lowerBit].fill.get_hex())
-
-        res2.append(SimdCell(val, None, cellGrad, 8))
-
-    res2.reverse()
-
-
-
-    resShuffleOp, spaceAdded = binaryAvxOperator(0, basePadding, "res2 = _mm256_shuffle_epi8(res1, byteExtractMask)", res1, extractShuffle, res2, "res1", "byteExtractMask", "res2")
-    basePadding += spaceAdded
-    G.append(resShuffleOp)
     
-    res3 = [SimdCell("{:02X}".format(int(res2[i].value, base=16) | int(completeMask[i].value, base=16)), None, mm3[31-i].fill, 8) for i in range(32)]
     
-    resCompleteOp, spaceAdded = binaryAvxOperator(0, basePadding, "res3 = _mm256_or_si256(res2, bitCompleteMask)", res2, completeMask, res3, "res2", "bitCompleteMask", "res3")
+    revZeroCountVec = [SimdCell(str(-int(x.value)), x.subscript, x.fill, x.width) for x in revNegZeroCountVec]
+    negateOp, spaceAdded = binaryAvxOperator(0, basePadding, "revZeroCount = _mm_sub_epi8(_mm_setzero_si128(), revNegZeroCountVec)", zeroVector, revNegZeroCountVec, revZeroCountVec, "_mm_setzero_si128()","revNegZeroCount", "revZeroCount")
+    G.append(negateOp)
     basePadding += spaceAdded
-    G.append(resCompleteOp)
-
-    res4 = [SimdCell("FF" if completeMask[i].value == res3[i].value else "0", None, res3[i].fill, 8) for i in range(32)]
     
-    reCmpOp, spaceAdded = binaryAvxOperator(0, basePadding, "res4 = _mm256_cmpeq_epi8(res3, bitCompleteMask)", res3, completeMask, res4, "res3", "bitCompleteMask", "res4")
-    basePadding += spaceAdded
-    G.append(reCmpOp)
-
-    charsOut = [SimdCell("'{}'".format(chr((int(res4[i].value, base=16) + ord('1')) % 256)), None, res4[i].fill, 8) for i in range(32)]
-    AsciiOne = [SimdCell("'1'", None, Color("khaki" if i < 16 else "sandybrown"), 8) for i in range(32)]
+    onlyFirstByteVec = [SimdCell("0" if i != 0 else "255", None, cs[i], 8) for i in range(16)]
+    psaVec = revPsaVec[0:1] + [SimdCell("0", None, revPsaVec[i].fill, 8) for i in range(1,16)]
+    zeroCountVec = revZeroCountVec[0:1] + [SimdCell("0", None, revZeroCountVec[i].fill, 8) for i in range(1,16)]
     
-    reAddOp, spaceAdded = binaryAvxOperator(0, basePadding, "charsOut = _mm256_add_epi8(res4, ASCII_ONE)", res4, AsciiOne, charsOut, "res4", "ASCII_ONE", "charsOut")
+    firstBytePsaOp, spaceAdded = binaryAvxOperator(0, basePadding, "psa = _mm_and_si128(revPsa, ONLY_FIRST_BYTE)", revPsaVec, onlyFirstByteVec, psaVec, "revPsa", "ONLY_FIRST_BYTE", "psa")
+    G.append(firstBytePsaOp)
     basePadding += spaceAdded
-    G.append(reAddOp)
+    
+    firstByteZeroCountOp, spaceAdded = binaryAvxOperator(0, basePadding, "psa = _mm_and_si128(revZeroCount, ONLY_FIRST_BYTE)", revZeroCountVec, onlyFirstByteVec, zeroCountVec, "revZeroCount", "ONLY_FIRST_BYTE", "zeroCount")
+    G.append(firstByteZeroCountOp)
+    basePadding += spaceAdded
+    
+    firstBytePsa64Vec = [SimdCell(psaVec[0].value, None, AA[0].fill, 64), SimdCell("0", None, AA[15].fill, 64)]
+    tempUpdate1Vec = [SimdCell(str(int(firstBytePsa64Vec[0].value) + int(updateVec[0].value)), None, updateVec[0].fill, 64), updateVec[1]]
+    
+    tempUpdateOp, spaceAdded = binaryAvxOperator(0, basePadding, "update = _mm_add_epi64(update, psa)", updateVec, firstBytePsa64Vec, tempUpdate1Vec, "update", "psa", "update")
+    G.append(tempUpdateOp)
+    basePadding += spaceAdded
+    
+    # zeroCount32
+    zeroCount32Vec = [SimdCell(zeroCountVec[0].value, None, zeroCountVec[0].fill, 32)] + [SimdCell("0", None, zeroCountVec[i*4].fill, 32) for i in range(1,4)]
+    
+    # Now to calculate triangle vector.
+    triangVec164 = [SimdCell(str(int(zeroCount32Vec[i].value)**2), None, zeroCount32Vec[i].fill, 64) for i in range(0,4,2)]
+    
+    firstTriangOp, spaceAdded = binaryAvxOperator(0, basePadding, "triang = _mm_mul_epi32(zeroCount, zeroCount)", zeroCount32Vec, zeroCount32Vec, triangVec164, "zeroCount", "zeroCount", "triang")
+    G.append(firstTriangOp)
+    basePadding += spaceAdded
+    
+    
+    triangVec1_32 = [SimdCell(triangVec164[0].value, None, zeroCountVec[0].fill, 32)] + [SimdCell("0", None, zeroCountVec[i*4].fill, 32) for i in range(1,4)]
+    
+    triangVec2_32 = [SimdCell(str(int(triangVec1_32[i].value) - int(zeroCount32Vec[i].value)), None, triangVec1_32[i].fill, 32) for i in range(4)]
+    
+    
+    secondTriangOp, spaceAdded = binaryAvxOperator(0, basePadding, "triang = _mm_sub_epi32(triang, zeroCount)", triangVec1_32, zeroCount32Vec, triangVec2_32, "triang", "zeroCount", "triang")
+    G.append(secondTriangOp)
+    basePadding += spaceAdded
+    
+    
+    triangVec3_32 = [SimdCell(str(int(triangVec2_32[i].value) >> 1), None, triangVec2_32[i].fill, 32) for i in range(4)]
+    # one32Vec = [SimdCell("'1'", None, cs[i*4], 32) for i in range(4)]
+    
+    thirdTriangOp, spaceAdded = unaryAvxOperator(0, basePadding, "triang = _mm_srli_epi32(triang, 1)", triangVec2_32, triangVec3_32, "triang", "triang")
+    G.append(thirdTriangOp)
+    basePadding += spaceAdded
+    
+    
+    triangVec3_64 = [SimdCell(triangVec3_32[0].value, None, AA[0].fill, 64), SimdCell("0", None, AA[15].fill, 64)]
+    tempUpdate2Vec = [SimdCell(str(int(tempUpdate1Vec[0].value) - int(triangVec3_64[0].value)), None, updateVec[0].fill, 64), updateVec[1]]
+    
+    tempUpdate2Op, spaceAdded = binaryAvxOperator(0, basePadding, "update = _mm_sub_epi64(update, triang)", tempUpdate1Vec, triangVec3_64, tempUpdate2Vec, "update", "triang", "update")
+    G.append(tempUpdate2Op)
+    basePadding += spaceAdded
+    
+    # Now lag calculations
+    tmpLagVec = [SimdCell(str(int(zeroCount32Vec[i].value)*int(lagVec[i].value)), None, lagVec[i].fill, 64) for i in range(0,4,2)]
+    tmpLagMulOp, spaceAdded = binaryAvxOperator(0, basePadding, "tmpLag = _mm_mul_epi32(lag, zeroCount)", lagVec, zeroCount32Vec, tmpLagVec, "lag", "zeroCount", "tmpLag")
+    G.append(tmpLagMulOp)
+    basePadding += spaceAdded
+    
+    newUpdateVec = [SimdCell(str(int(tempUpdate2Vec[i].value) + int(tmpLagVec[i].value)), None, updateVec[i].fill, 64) for i in range(2)]
+    
+    finalUpdateOp, spaceAdded =  binaryAvxOperator(0, basePadding, "update = _mm_add_epi64(update, tmpLag)", tempUpdate2Vec, tmpLagVec, newUpdateVec, "update", "tmpLag", "update")
+    G.append(finalUpdateOp)
+    basePadding += spaceAdded
+    
 
 
-    return G
+    tmpLag32Vec = [SimdCell(tmpLagVec[i].value if i == 0 else "0", None, lagVec[i].fill, 32) for i in range(4)]
+    tmpLag1_32 = [SimdCell(str(int(lagVec[i].value) - int(zeroCount32Vec[i].value)), None, tmpLag32Vec[i].fill, 32) for i in range(4)]
+    
+    tmpLag2Op, spaceAdded = binaryAvxOperator(0, basePadding, "lag = _mm_sub_epi32(lag, zeroCount)", lagVec, zeroCount32Vec, tmpLag1_32, "lag", "zeroCount", "lag")
+    G.append(tmpLag2Op)
+    basePadding += spaceAdded
+    
+    
+    tmpVec16 = [SimdCell("16", None, cs[i], 32) for i in range(4)]
+    newLagVec = [SimdCell(str(int(tmpLag1_32[i].value) + int(tmpVec16[i].value)), None, tmpLag1_32[i].fill, 32) for i in range(4)]
+
+    
+    tmpLag3Op, spaceAdded = binaryAvxOperator(0, basePadding, "lag = _mm_add_epi32(lag,  _mm_set1_epi32(16))", tmpLag1_32, tmpVec16, newLagVec, "lag", "_mm_set1_epi32(16)", "lag")
+    G.append(tmpLag3Op)
+    basePadding += spaceAdded
+    
+    return G, basePadding, newUpdateVec, newLagVec
+
+
 
 
 def showBitCompleteMask():
@@ -415,6 +423,7 @@ def visualizeSSE_v2(s):
     s2 = s[16:32]
     
     G = dw.Group()
+    
 
     leftGroup = dw.Group()
     rightGroup = dw.Group(transform="translate(800)")
@@ -428,17 +437,33 @@ def visualizeSSE_v2(s):
     redEnd2 = Color("seagreen")
     blueStart2 = Color("lavender")
     blueEnd2 = Color("orchid")
+    
+    lagCs = list(blueStart2.range_to(blueEnd2, 4))
+    lagVec = [SimdCell("0" if i != 0 else "-1", None, lagCs[i], 32) for i in range(4)]
+    
+    updateVec = [SimdCell("0", None, lagCs[i], 64) for i in range(2)]
+
+
 
    #  s1G, mm1 = visualizeSSE_v2_step_1(s1, "1", blueStart1, blueEnd1, redStart1, redEnd1)
     # s1G, mm1 = visualizeSSE_v2_step_1(s1, "1", blueStart1, blueEnd1, redStart1, redEnd1)
+    
+    basePadding = 0
 
-    s1G = visualizeSSE_v2_step_1(s1)
-    s2G = visualizeSSE_v2_step_1(s2)
+    s1G, spaceAdded, newUpdateVec, newLagVec = visualizeSSE_v2_step_1(s1, updateVec, lagVec)
+    leftGroup.append(s1G)
+    basePadding += spaceAdded
+    
+    s2G, spaceAdded, newUpdateVec, newLagVec = visualizeSSE_v2_step_1(s1, newUpdateVec, newLagVec)
+    rightGroup.append(s2G)
+    basePadding += spaceAdded
+    
+    
+    # s2G = visualizeSSE_v2_step_1(s2)
 
     # s2G = visualizeAVX2_v2_step_1(s2, "2", Color("PaleGreen"), Color("SeaGreen"), Color("lavender"), Color("orchid"))
 
-    leftGroup.append(s1G)
-    rightGroup.append(s2G)
+    # rightGroup.append(s2G)
 
     # stepTwoG, mm3 = visualizeAVX2_v2_step_2(mm1, mm2)
     # stepTwoG.args["transform"] = "translate(0, 600)"
