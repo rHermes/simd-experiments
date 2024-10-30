@@ -98,7 +98,7 @@ The trick is to always consider the current chunk in relation to some anchor I, 
 chunk starts. When you write `I = oldPos + lag`, we can express `oldPos` as `I - lag`, which turns out to cancel
 all references to `I` in the final expression. This means that the only state we need to keep is `answer` and `lag`.
 
-There is a bit more to it, but I it's rather elegant. Especially the fact that I chose to have `I` as one before, so
+There is a bit more to it, but it's rather elegant. Especially the fact that I chose to have `I` as one before, so
 that we can identify 0 from 1.
 
 For AVX2, I couldn't just use 1-32, because the 8 bit psa on the upper lane could overflow. So instead I did 1-16 on

@@ -116,7 +116,7 @@ sanityCheck(Rng&& rng)
 {
   // const auto testSet = generateBernoulliTestset(rng, 100, 100, 0.5);
   // const auto testSet = generateBernoulliTestset(rng, 100, 100, 0.3);
-  const auto testSet = generateBernoulliTestset(rng, 100, 35, 0.5);
+  const auto testSet = generateBernoulliTestset(rng, 10000, 40, 0.5);
   // const auto testSet = generateBernoulliTestset(rng, 100, 65, 0.5);
   // const auto testSet = generateBernoulliTestset(rng, 100, 32, 0.5);
   // const auto testSet = generateBernoulliTestset(rng, 100, 14, 0.5);
@@ -614,7 +614,7 @@ main()
       std::print("CAL: {}\n", heyHey);
     }
   }
-  */+
+  */
   /*
   ankerl::nanobench::Bench b;
 
