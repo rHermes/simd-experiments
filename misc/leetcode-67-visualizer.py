@@ -282,8 +282,6 @@ def visualizeAVX2_v2_step_3(mm3):
     extractShuffle.reverse()
 
     cs2 = list(Color("LemonChiffon").range_to(Color("DarkKhaki"), 8))
-    # completeMask = [SimdCell("{: 3d}".format(0xFF ^ (1<<i)), None, cs2[i], 8) for i in range(8)]*4
-    # completeMask = [SimdCell("{:02X}".format(0xFF ^ (1<<(7-i))), None, cs2[i], 8) for i in range(8)]*4
     completeMask = [SimdCell("{:02X}".format(0xFF ^ (1<<i)), None, cs2[i], 8) for i in range(8)]*4
     completeMask.reverse()
 
@@ -348,6 +346,37 @@ def visualizeAVX2_v2_step_3(mm3):
     return G
 
 
+def showBitCompleteMask():
+    group = dw.Group()
+    
+    
+    cs2 = list(Color("LemonChiffon").range_to(Color("DarkKhaki"), 8))
+    completeMask = [SimdCell("{:02X}".format(0xFF ^ (1<<i)), None, cs2[i], 8) for i in range(8)]
+    completeMask.reverse()
+    
+    group.append(dw.Text("bitCompleteMask", BLOCK_TEXT_SIZE*2, 0, 0, font_family="monospace")) 
+    
+    shiftY = 10
+    for cell in completeMask:
+        block = dw.Group(transform="translate(0, {})".format(shiftY))
+        elemW = cell.width * BLOCK_WIDTH
+        
+        block.append(dw.Rectangle(0, 0, elemW, BLOCK_HEIGHT, fill=cell.fill.get_hex(), stroke="black"))
+        txt = dw.Text(cell.value, BLOCK_TEXT_SIZE, elemW*0.50, BLOCK_HEIGHT/2, center=True, font_family="monospace")        
+        block.append(txt)
+        
+        writeText = dw.Text("{:08b}".format(int(cell.value, base=16)), BLOCK_TEXT_SIZE, elemW + 10 , BLOCK_HEIGHT/2, dominant_baseline="Middle", text_anchor="start", font_family="monospace")
+        block.append(writeText)
+        
+        group.append(block)
+        
+        shiftY += elemW
+
+    return group
+
+
+    
+
 def visualizeAVX2_v2(s1, s2):
     G = dw.Group()
 
@@ -381,16 +410,18 @@ def visualizeAVX2_v2(s1, s2):
     stepThreeG = visualizeAVX2_v2_step_3(mm3)
     stepThreeG.args["transform"] = "translate(0, 800)"
     leftGroup.append(stepThreeG)
-
+    
+    bitCmpMask = showBitCompleteMask()
+    bitCmpMask.args["transform"] = "translate(30, 950) scale(1.4)"
+    rightGroup.append(bitCmpMask)
     
     return G
 
 
 
 d = dw.Drawing(WIDTH, HEIGHT)
-d.append(dw.Rectangle(0, 0, WIDTH, HEIGHT, fill="white", stroke="red"))
+# .append(dw.Rectangle(0, 0, WIDTH, HEIGHT, fill="white", stroke="red"))
 
-# d.append(visualizeAVX2_v2('101001010101100110010010110000000', '110010001011000000001101010101000'))
 d.append(visualizeAVX2_v2('10100101010110011001001011000000', '11001000101100000000110101010100'))
 
 # print(d.as_svg())
