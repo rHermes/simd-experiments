@@ -86,7 +86,7 @@ runBernoulliTest(Rng&& rng, const std::string& desc, const std::size_t size, con
 
   b.relative(true);
 
-  // runTest("Scalar", solveScalar);
+  runTest("Scalar", solveScalar);
 
   runTest("SSE4_v1", solveSIMD_SSE4_v1);
   runTest("SSE4_v2", solveSIMD_SSE4_v2);
@@ -99,7 +99,7 @@ bool
 sanityCheck(Rng&& rng)
 {
   // const auto testSet = generateBernoulliTestset(rng, 100, 100, 0.5);
-  const auto testSet = generateBernoulliTestset(rng, 100, 100, 0.5);
+  const auto testSet = generateBernoulliTestset(rng, 100, 32, 0.5);
   // const auto testSet = generateBernoulliTestset(rng, 100, 65, 0.5);
   // const auto testSet = generateBernoulliTestset(rng, 100, 32, 0.5);
   // const auto testSet = generateBernoulliTestset(rng, 100, 14, 0.5);

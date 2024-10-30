@@ -131,5 +131,6 @@
   - Varies from machine to machine, layout to layout.
   - If this stuff matters to you, you will need to activly make choices based on the hardware you are running.
 
-## All
+## Bits tricks can be solved using z3.
+- We can use z3 to figure out bit tricks, or even prove that none exists.
 
